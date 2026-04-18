@@ -427,10 +427,18 @@ function M.setup(args)
 						c:geometry(saved)
 						c._pre_fs_geom = nil
 						c._pre_max_geom = nil
+						c._pre_max_v_geom = nil
 					end
 				else
-					if c.maximized or c.maximized_horizontal or c.maximized_vertical then
-						c._pre_fs_geom = c._pre_max_geom
+					-- Carry the correct pre-max memento through fullscreen.
+					-- _pre_max_geom covers Super+M, _pre_max_v_geom covers Super+Ctrl+M.
+					-- If the client was maximized via a non-keybinding path (titlebar,
+					-- client request, rule) no memento exists — fall back to current
+					-- geometry, matching pre-fix behavior (no regression).
+					if c.maximized then
+						c._pre_fs_geom = c._pre_max_geom or c:geometry()
+					elseif c.maximized_vertical then
+						c._pre_fs_geom = c._pre_max_v_geom or c:geometry()
 					else
 						c._pre_fs_geom = c:geometry()
 					end
@@ -468,6 +476,7 @@ function M.setup(args)
 						c:geometry(saved)
 						c._pre_fs_geom = nil
 						c._pre_max_geom = nil
+						c._pre_max_v_geom = nil
 					end
 				elseif c.maximized then
 					local saved = c._pre_max_geom
