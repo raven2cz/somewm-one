@@ -411,9 +411,31 @@ function M.setup(args)
 
 	client.connect_signal("request::default_keybindings", function()
 		awful.keyboard.append_client_keybindings({
+			-- Fullscreen with pre-all-state memento so Super+F off restores
+			-- to the true pre-max/pre-fs geometry, not the intermediate max rect.
+			-- AwesomeWM's default shares data[c]["maximize"] for both states so
+			-- entering FS from max overwrites the pre-max memento. We keep our
+			-- own per-client memento to avoid that collision.
 			awful.key({ modkey }, "f", function(c)
-				c.fullscreen = not c.fullscreen
-				c:raise()
+				if c.fullscreen then
+					local saved = c._pre_fs_geom
+					c.fullscreen = false
+					if saved then
+						c.maximized = false
+						c.maximized_horizontal = false
+						c.maximized_vertical = false
+						c:geometry(saved)
+						c._pre_fs_geom = nil
+						c._pre_max_geom = nil
+					end
+				else
+					if c.maximized or c.maximized_horizontal or c.maximized_vertical then
+						c._pre_fs_geom = c._pre_max_geom
+					else
+						c._pre_fs_geom = c:geometry()
+					end
+					c.fullscreen = true
+				end
 			end, {description = "toggle fullscreen", group = "client"}),
 			awful.key({ modkey, "Shift" }, "c", function(c) c:kill() end,
 				{description = "close", group = "client"}),
@@ -431,13 +453,46 @@ function M.setup(args)
 				local anim = require("anim_client")
 				anim.fade_minimize(c)
 			end, {description = "minimize", group = "client"}),
+			-- Maximize with pre-max memento (Bug 2 preservation) and no
+			-- auto-raise (Bug 1: maximize is not an ontop request).
+			-- If currently fullscreen, treat Super+M as "exit FS + unmax"
+			-- since FS visually hides the maximized layer.
 			awful.key({ modkey }, "m", function(c)
-				c.maximized = not c.maximized
-				c:raise()
+				if c.fullscreen then
+					local saved = c._pre_fs_geom
+					c.fullscreen = false
+					c.maximized = false
+					c.maximized_horizontal = false
+					c.maximized_vertical = false
+					if saved then
+						c:geometry(saved)
+						c._pre_fs_geom = nil
+						c._pre_max_geom = nil
+					end
+				elseif c.maximized then
+					local saved = c._pre_max_geom
+					c.maximized = false
+					if saved then
+						c:geometry(saved)
+						c._pre_max_geom = nil
+					end
+				else
+					c._pre_max_geom = c:geometry()
+					c.maximized = true
+				end
 			end, {description = "(un)maximize", group = "client"}),
 			awful.key({ modkey, "Control" }, "m", function(c)
-				c.maximized_vertical = not c.maximized_vertical
-				c:raise()
+				if c.maximized_vertical then
+					local saved = c._pre_max_v_geom
+					c.maximized_vertical = false
+					if saved then
+						c:geometry(saved)
+						c._pre_max_v_geom = nil
+					end
+				else
+					c._pre_max_v_geom = c:geometry()
+					c.maximized_vertical = true
+				end
 			end, {description = "(un)maximize vertically", group = "client"}),
 		})
 	end)
