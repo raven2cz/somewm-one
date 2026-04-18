@@ -17,9 +17,11 @@ local awful = require("awful")
 local beautiful = require("beautiful")
 local hotkeys_popup = require("awful.hotkeys_popup")
 local menubar = require("menubar")
+local naughty = require("naughty")
 local dpi = require("beautiful.xresources").apply_dpi
 local fmenu = require("fishlive.menu")
 local recording = require("fishlive.config.recording")
+local portraits = require("fishlive.services.portraits")
 
 local M = {}
 
@@ -87,10 +89,55 @@ function M.setup(args)
 		menu = start_menu,
 	})
 
+	local function build_portraits_items()
+		local current = portraits.get_default()
+		-- Rely on the 30 s TTL in the service cache for freshness; don't
+		-- invalidate here — it would nuke the cache random_image() uses on
+		-- the notification path whenever the menu is opened.
+		local cols = portraits.list_collections()
+		if #cols == 0 then
+			return { {
+				icon = "󰋗",
+				label = "(no portrait collections found)",
+				on_activate = function() end,
+			} }
+		end
+		local items = {}
+		for _, name in ipairs(cols) do
+			table.insert(items, {
+				icon = (name == current) and "󰄲" or "󰄱",
+				label = name,
+				on_activate = function()
+					if not portraits.set_default(name) then return end
+					-- Preview notification: confirms the write landed and
+					-- shows a real random image from the freshly-selected
+					-- collection through the normal resolve_icon path.
+					local img = portraits.random_image()
+					local basename = img and img:match("([^/]+)$") or "(empty)"
+					naughty.notification({
+						title = "Portrait: " .. name,
+						message = basename,
+						icon = img,
+						timeout = 5,
+					})
+				end,
+			})
+		end
+		return items
+	end
+
+	local portraits_menu = fmenu.new({
+		items_source = build_portraits_items,
+		close_on = "escape",
+		placement = "under_mouse",
+		width = dpi(260),
+	})
+
 	return {
-		start_menu   = start_menu,
-		desktop_menu = desktop_menu,
-		launcher     = launcher,
+		start_menu     = start_menu,
+		desktop_menu   = desktop_menu,
+		launcher       = launcher,
+		portraits_menu = portraits_menu,
 	}
 end
 

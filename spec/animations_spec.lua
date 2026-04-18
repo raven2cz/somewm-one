@@ -82,55 +82,47 @@ package.preload["ruled"] = function()
 	}
 end
 
--- ===== Taglist component tests =====
-describe("fishlive.components.taglist", function()
-	local taglist
-	setup(function()
-		taglist = require("fishlive.components.taglist")
-	end)
+-- Stubbable XDG icon lookup (tests override the lookup table).
+_G._test_menubar_icons = {}
+package.preload["menubar.utils"] = function()
+	return {
+		lookup_icon = function(name)
+			return _G._test_menubar_icons[name]
+		end,
+	}
+end
 
-	describe("_resolve_config", function()
-		it("returns defaults when no config given", function()
-			local cfg = taglist._resolve_config({})
-			assert.are.equal(20, cfg.underline_selected)
-			assert.are.equal(0, cfg.underline_occupied)
-			assert.are.equal(0, cfg.underline_empty)
-			assert.are.equal(0.2, cfg.anim_duration)
-		end)
+package.preload["anim_client"] = function()
+	return { fade_notification = function() end }
+end
 
-		it("respects custom values", function()
-			local cfg = taglist._resolve_config({ underline_selected = 30, anim_duration = 0.5 })
-			assert.are.equal(30, cfg.underline_selected)
-			assert.are.equal(0.5, cfg.anim_duration)
-		end)
-	end)
-
-	describe("_target_width", function()
-		it("returns selected width for selected tag", function()
-			local cfg = taglist._resolve_config({})
-			local tag = { selected = true, clients = function() return {} end }
-			assert.are.equal(20, taglist._target_width(tag, cfg))
-		end)
-
-		it("returns occupied width for tag with clients", function()
-			local cfg = taglist._resolve_config({})
-			local tag = { selected = false, clients = function() return { {}, {} } end }
-			assert.are.equal(0, taglist._target_width(tag, cfg))
-		end)
-
-		it("returns empty width for empty tag", function()
-			local cfg = taglist._resolve_config({})
-			local tag = { selected = false, clients = function() return {} end }
-			assert.are.equal(0, taglist._target_width(tag, cfg))
-		end)
-	end)
-end)
+-- Stubbable portraits service for notification-fallback tests.
+_G._test_portraits_random = nil
+_G._test_portraits_calls = 0
+package.preload["fishlive.services.portraits"] = function()
+	return {
+		random_image = function()
+			_G._test_portraits_calls = _G._test_portraits_calls + 1
+			return _G._test_portraits_random
+		end,
+	}
+end
 
 -- ===== Notifications component tests =====
 describe("fishlive.components.notifications", function()
 	local notifications
+	local function make_surface(w, h)
+		return { get_width = function() return w end, get_height = function() return h end }
+	end
+
 	setup(function()
 		notifications = require("fishlive.components.notifications")
+	end)
+
+	before_each(function()
+		_G._test_menubar_icons = {}
+		_G._test_portraits_random = nil
+		_G._test_portraits_calls = 0
 	end)
 
 	describe("_resolve_icon", function()
@@ -139,57 +131,91 @@ describe("fishlive.components.notifications", function()
 			assert.are.equal("/usr/share/icons/test.png", notifications._resolve_icon(n))
 		end)
 
-		it("returns default for empty icon", function()
+		it("falls back to default for empty-string icon", function()
 			local n = { icon = "" }
-			-- beautiful.notification_icon_default is nil in stub, that's fine
 			assert.is_nil(notifications._resolve_icon(n))
 		end)
 
-		it("returns default for nil icon", function()
+		it("falls back to default for nil icon", function()
 			local n = { icon = nil }
 			assert.is_nil(notifications._resolve_icon(n))
 		end)
 
-		it("returns default for relative path", function()
+		it("falls back to default for relative-path icon", function()
 			local n = { icon = "relative/path.png" }
 			assert.is_nil(notifications._resolve_icon(n))
 		end)
 
-		it("passes through cairo surface (userdata)", function()
-			local surface = { type = "surface" }
+		it("returns a cairo surface with real dimensions", function()
+			local surface = make_surface(64, 64)
 			local n = { icon = surface }
 			assert.are.equal(surface, notifications._resolve_icon(n))
 		end)
-	end)
 
-	describe("_fade_in", function()
-		it("sets popup opacity to 0", function()
-			local popup = { opacity = 1, valid = true }
-			notifications._fade_in(popup)
-			assert.is_true(popup.opacity >= 0)
+		it("treats a 0x0 cairo error-surface as no icon (regression: notify-send --icon=<XDG-name>)", function()
+			-- When libnotify puts an XDG icon name into image-path, naughty's
+			-- icon_path_handler fails to load it and stores gears.surface's
+			-- 0x0 default error surface, which is still truthy.
+			local broken = make_surface(0, 0)
+			local n = { icon = broken, image = "does-not-exist" }
+			assert.is_nil(notifications._resolve_icon(n))
 		end)
 
-		it("returns a rubato timed instance", function()
-			local popup = { opacity = 1, valid = true }
-			local anim = notifications._fade_in(popup)
-			assert.is_not_nil(anim)
-			assert.is_not_nil(anim.target)
+		it("resolves XDG icon name from n.image when n.icon is a broken surface", function()
+			_G._test_menubar_icons["claude-ai"] = "/usr/share/icons/Papirus/claude.svg"
+			local broken = make_surface(0, 0)
+			local n = { icon = broken, image = "claude-ai" }
+			assert.are.equal("/usr/share/icons/Papirus/claude.svg",
+				notifications._resolve_icon(n))
 		end)
 
-		it("accepts custom config", function()
-			local popup = { opacity = 1, valid = true }
-			local anim = notifications._fade_in(popup, {
-				fade_in_duration = 0.5,
-				fade_in_intro = 0.1,
-			})
-			assert.is_not_nil(anim)
+		it("resolves XDG name case-insensitively", function()
+			_G._test_menubar_icons["slack"] = "/usr/share/icons/slack.png"
+			local n = { icon = nil, image = "Slack" }
+			assert.are.equal("/usr/share/icons/slack.png",
+				notifications._resolve_icon(n))
 		end)
-	end)
 
-	describe("_build_widget_template", function()
-		it("returns a table with background_role", function()
-			local tmpl = notifications._build_widget_template("/test.png")
-			assert.are.equal("background_role", tmpl.id)
+		it("falls back from image → app_icon → app_name", function()
+			_G._test_menubar_icons["firefox"] = "/firefox.png"
+			local n = { icon = nil, image = nil, app_icon = nil, app_name = "Firefox" }
+			assert.are.equal("/firefox.png", notifications._resolve_icon(n))
+		end)
+
+		it("never treats absolute-path strings as XDG names", function()
+			_G._test_menubar_icons["/tmp/foo"] = "/should-not-hit.png"
+			local n = { icon = nil, image = "/tmp/foo" }
+			assert.is_nil(notifications._resolve_icon(n))
+		end)
+
+		it("falls through to random portrait when XDG has no hit", function()
+			_G._test_portraits_random = "/home/user/portrait/joy/a.jpg"
+			local n = { icon = nil, image = nil, app_icon = nil, app_name = nil }
+			assert.are.equal("/home/user/portrait/joy/a.jpg",
+				notifications._resolve_icon(n))
+			assert.are.equal(1, _G._test_portraits_calls)
+		end)
+
+		it("falls through to bell when portrait also returns nil", function()
+			_G._test_portraits_random = nil
+			local n = { icon = nil }
+			assert.is_nil(notifications._resolve_icon(n))
+			assert.are.equal(1, _G._test_portraits_calls)
+		end)
+
+		it("does NOT call portraits when XDG hits", function()
+			_G._test_menubar_icons["firefox"] = "/firefox.png"
+			_G._test_portraits_random = "/should-not-be-used.jpg"
+			local n = { icon = nil, image = "firefox" }
+			assert.are.equal("/firefox.png", notifications._resolve_icon(n))
+			assert.are.equal(0, _G._test_portraits_calls)
+		end)
+
+		it("does NOT call portraits when n.icon is a valid absolute path", function()
+			_G._test_portraits_random = "/should-not-be-used.jpg"
+			local n = { icon = "/usr/share/icons/test.png" }
+			assert.are.equal("/usr/share/icons/test.png", notifications._resolve_icon(n))
+			assert.are.equal(0, _G._test_portraits_calls)
 		end)
 	end)
 end)

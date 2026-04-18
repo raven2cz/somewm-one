@@ -50,6 +50,7 @@ local M = {}
 -- @tparam string args.editor_cmd Editor launch command
 -- @tparam table args.start_menu fishlive.menu instance for Super+W
 -- @tparam table args.desktop_menu fishlive.menu instance for right-click
+-- @tparam table args.portraits_menu fishlive.menu instance for Super+Shift+P
 function M.setup(args)
 	local modkey = args.modkey
 	local altkey = args.altkey
@@ -57,6 +58,7 @@ function M.setup(args)
 	local editor_cmd = args.editor_cmd
 	local start_menu = args.start_menu
 	local desktop_menu = args.desktop_menu
+	local portraits_menu = args.portraits_menu
 
 	-- somewm-shell overlay state (set via IPC from Quickshell Panels.qml)
 	-- When true, desktop scroll-to-switch-tags is suppressed.
@@ -90,6 +92,9 @@ function M.setup(args)
 			{ description = "show rofi drun", group = "launcher" }),
 		awful.key({ modkey }, "w", function() start_menu:toggle() end,
 			{description = "show main menu", group = "awesome"}),
+		awful.key({ modkey, "Shift" }, "p", function()
+			if portraits_menu then portraits_menu:toggle() end
+		end, {description = "switch default portrait collection", group = "awesome"}),
 		awful.key({ modkey, "Shift" }, "r", awesome.restart,
 			{description = "reload configuration", group = "awesome"}),
 		awful.key({ modkey }, "q", function() awesome.emit_signal("exit_screen::toggle") end,

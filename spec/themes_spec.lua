@@ -54,6 +54,12 @@ package.preload["wibox"] = function()
 	}
 end
 
+-- Stub AwesomeWM global `root` used by themes.switch() for wallpaper cache.
+_G.root = _G.root or {
+	wallpaper_cache_clear = function() end,
+	wallpaper_cache_preload = function() end,
+}
+
 -- Stub screen iterator (for scr in screen do ... end)
 -- In Lua, `for var in callable_table do` uses __call as the iterator function.
 -- __call must return nil to signal end of iteration.

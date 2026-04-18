@@ -139,12 +139,13 @@ require("fishlive.config.screen").setup({
 
 -- {{{ Keybindings
 require("fishlive.config.keybindings").setup({
-    modkey       = modkey,
-    altkey       = altkey,
-    terminal     = terminal,
-    editor_cmd   = editor_cmd,
-    start_menu   = menus.start_menu,
-    desktop_menu = menus.desktop_menu,
+    modkey         = modkey,
+    altkey         = altkey,
+    terminal       = terminal,
+    editor_cmd     = editor_cmd,
+    start_menu     = menus.start_menu,
+    desktop_menu   = menus.desktop_menu,
+    portraits_menu = menus.portraits_menu,
 })
 -- }}}
 
