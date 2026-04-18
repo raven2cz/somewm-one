@@ -150,6 +150,9 @@ function M.setup(args)
 		awful.key({ modkey, "Shift" }, "a", function()
 			awful.spawn("qs ipc -c somewm call somewm-shell:panels toggle ai-chat")
 		end, { description = "toggle AI chat", group = "shell" }),
+		awful.key({ modkey, "Shift" }, "s", function()
+			awful.spawn("qs ipc -c somewm call somewm-shell:panels toggle sidebar-left")
+		end, { description = "toggle left sidebar", group = "shell" }),
 
 		-- machi layout special keybindings
 		awful.key({ modkey }, ".", function() machi.default_editor.start_interactive() end,
