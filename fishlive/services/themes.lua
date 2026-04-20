@@ -288,18 +288,28 @@ function themes.switch(theme_name)
 	wp_service._user_wppath = wppath:gsub("wallpapers/$", "user-wallpapers/")
 	-- Clear overrides (they belonged to the previous theme)
 	wp_service._overrides = {}
+	-- Drop the negative scope-dir cache — the new theme's filesystem layout
+	-- may have scoped subdirs the previous theme lacked (or vice versa).
+	wp_service._scope_dir_missing = {}
 
 	-- Clear tag_slide animation cache ONCE for all screens — wallpaper_cache_clear()
 	-- is global (clears every screen's cache), so calling it inside the per-screen
 	-- loop would wipe entries preloaded for earlier screens in this same theme switch.
 	if root.wallpaper_cache_clear then root.wallpaper_cache_clear() end
 
-	-- Re-apply wallpapers and rebuild slide cache for all screens
+	-- Pre-pass: update every screen's _wppath before any apply() runs, so
+	-- tag_slide animation overlays triggered mid-loop don't reference a
+	-- screen still carrying the previous theme's path.
+	for scr in screen do scr._wppath = wppath end
+
+	-- Re-apply wallpapers and rebuild slide cache for all screens.
+	-- Each screen resolves through its own active scope set, so a portrait
+	-- HP and a landscape Dell pick up orientation-appropriate images from
+	-- the same new theme.
 	for scr in screen do
-		scr._wppath = wppath
 		local sel = scr.selected_tag
 		if sel then
-			local wp = wp_service._resolve(sel.name)
+			local wp = wp_service._resolve_for_screen(scr, sel.name)
 			if wp then
 				-- Clear cached path so apply() doesn't skip as redundant
 				scr._current_wallpaper = nil
@@ -310,7 +320,7 @@ function themes.switch(theme_name)
 		if root.wallpaper_cache_preload then
 			local paths = {}
 			for _, tag in ipairs(scr.tags) do
-				local wp = wp_service._resolve(tag.name)
+				local wp = wp_service._resolve_for_screen(scr, tag.name)
 				if wp then table.insert(paths, wp) end
 			end
 			if #paths > 0 then
