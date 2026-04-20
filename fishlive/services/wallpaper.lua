@@ -277,6 +277,36 @@ function wallpaper.init(scr, wppath, default_wallpaper, opts)
 			end
 		end)
 	end
+
+	-- Re-apply on screen geometry change (hotplug, transform/resolution switch).
+	-- apply_wallpaper's cover surface bakes in geo.width × geo.height at apply
+	-- time; if the screen comes up with a pre-transform geometry (e.g. HP
+	-- portrait transiently visible as 3840×2160 landscape before transform "90"
+	-- settles to 2160×3840) the cover surface ends up with stale dimensions and
+	-- the wallpaper shows letterboxed on the final orientation. Invalidate this
+	-- screen's cache entries, drop _current_wallpaper, then re-run apply and
+	-- cache preload so both the active surface and the cached scene buffers
+	-- match the final output layout.
+	scr:connect_signal("property::geometry", function(s)
+		if root.wallpaper_cache_invalidate_screen then
+			root.wallpaper_cache_invalidate_screen(s.index)
+		end
+		s._current_wallpaper = nil
+
+		local sel = s.selected_tag
+		local tag_name = sel and sel.name or (s.tags[1] and s.tags[1].name) or "1"
+		local wp = wallpaper._resolve(tag_name)
+		if wp then apply_wallpaper(s, wp) end
+
+		if root.wallpaper_cache_preload then
+			local paths = {}
+			for _, tag in ipairs(s.tags) do
+				local p = wallpaper._resolve(tag.name)
+				if p then table.insert(paths, p) end
+			end
+			if #paths > 0 then root.wallpaper_cache_preload(paths, s, { fit = "cover" }) end
+		end
+	end)
 end
 
 --- Set a wallpaper override for a tag (runtime preview, not persisted).
