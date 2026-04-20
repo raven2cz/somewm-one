@@ -193,6 +193,12 @@ end
 -- where make/model are absent. Returns empty string only when the screen
 -- argument is fully unusable (should not happen in practice). Sanitises
 -- values so the minimal JSON reader/writer round-trips cleanly.
+--
+-- Known limitation: two identical monitors (same make|model) collapse to
+-- the same key and share their manual scope list. The auto-scope (portrait)
+-- is still per-screen because it is derived from each output's transform
+-- at resolve time, so this only affects manual scopes. Acceptable for
+-- the common asymmetric multi-monitor setup.
 -- @tparam screen scr
 -- @treturn string Key suitable for wallpaper._manual_scopes indexing
 function wallpaper._screen_key(scr)
@@ -569,6 +575,12 @@ end
 -- Accepts { "key": [ "str", "str" ], ... }. Returns {} on parse error
 -- rather than raising — stale/partial files degrade to "no manual scopes"
 -- so session startup is never blocked by bad state.
+--
+-- Scope values pass the same safe-basename filter that IPC writers apply
+-- (alphanumeric + dash/underscore/dot, no slashes, no .., no .). A
+-- hand-edited file with a malicious scope like `"../etc"` has the entry
+-- dropped rather than re-entering the in-memory state where `_resolve()`
+-- would concat it into a filesystem path.
 -- @tparam string text
 -- @treturn table Parsed `{ [key] = { "scope", ... } }`
 local function parse_manual_scopes_json(text)
@@ -579,7 +591,11 @@ local function parse_manual_scopes_json(text)
 	for key, body in text:gmatch('"([^"\\]*)"%s*:%s*%[([^%]]*)%]') do
 		local list = {}
 		for item in body:gmatch('"([^"\\]*)"') do
-			table.insert(list, item)
+			if item ~= "" and not item:match("[/\\]")
+				and item ~= ".." and item ~= "."
+				and item:match("^[%w%-_%.]+$") then
+				table.insert(list, item)
+			end
 		end
 		out[key] = list
 	end
@@ -611,13 +627,15 @@ function wallpaper._save_manual_scopes()
 	local body = manual_scopes_to_json(wallpaper._manual_scopes) .. "\n"
 	local f = io.open(tmp, "w")
 	if not f then return false end
-	local ok, err = f:write(body)
-	f:close()
-	if not ok then
-		-- write() returned nil on disk-full / IO error — abandon tmp and
-		-- preserve the existing on-disk state.
+	local write_ok, write_err = f:write(body)
+	-- close() can surface buffered I/O errors that write() didn't, so
+	-- treat its failure identically to a write failure.
+	local close_ok, close_err = f:close()
+	if not write_ok or not close_ok then
+		-- write() or close() signalled disk-full / IO error — abandon
+		-- tmp and preserve the existing on-disk state.
 		os.remove(tmp)
-		return false, err
+		return false, write_err or close_err
 	end
 	-- os.rename is atomic on POSIX when both paths are on the same fs.
 	local renamed = os.rename(tmp, path)
@@ -907,22 +925,38 @@ function wallpaper.save_to_theme(tag_name, source_path, scope)
 	local dest_dir = user_dest_dir(scope)
 	if not dest_dir then return false end
 
-	-- Remove any existing file for this tag in the destination dir (different ext)
-	for _, e in ipairs({ "jpg", "jpeg", "png", "webp" }) do
-		os.remove(dest_dir .. tag_name .. "." .. e)
-	end
-
-	-- Copy source to destination
-	local dest = dest_dir .. tag_name .. "." .. ext
+	-- Read source fully before touching any destination file, so an ENOSPC
+	-- or read error leaves the previous user-wallpaper intact.
 	local src_file = io.open(source_path, "rb")
 	if not src_file then return false end
 	local data = src_file:read("*a")
 	src_file:close()
+	if not data then return false end
 
-	local dst_file = io.open(dest, "wb")
+	-- Write to a temp path first, then rename over the intended destination.
+	-- Only after the rename succeeds do we prune other-extension siblings.
+	local dest = dest_dir .. tag_name .. "." .. ext
+	local tmp  = dest .. ".tmp"
+	local dst_file = io.open(tmp, "wb")
 	if not dst_file then return false end
-	dst_file:write(data)
-	dst_file:close()
+	local write_ok, write_err = dst_file:write(data)
+	local close_ok, close_err = dst_file:close()
+	if not write_ok or not close_ok then
+		os.remove(tmp)
+		return false, write_err or close_err
+	end
+	if not os.rename(tmp, dest) then
+		os.remove(tmp)
+		return false
+	end
+	-- New destination is in place — now remove siblings with other extensions
+	-- so resolver doesn't pick up a stale match. Skip the destination itself
+	-- (same tag + same ext) to avoid deleting what we just wrote.
+	for _, e in ipairs({ "jpg", "jpeg", "png", "webp" }) do
+		if e ~= ext then
+			os.remove(dest_dir .. tag_name .. "." .. e)
+		end
+	end
 
 	-- Clear any in-memory override for this scope (user-wp file supersedes).
 	local bucket = wallpaper._overrides[scope]
