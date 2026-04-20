@@ -111,34 +111,40 @@ end)
 -- }}}
 
 -- {{{ Output configuration (monitor modes/scale/transform/position)
--- Two profiles auto-detected by which monitor is connected:
+-- Two layouts auto-detected by which monitor is connected:
 --   (A) HP U28 portrait + Dell G3223Q landscape   — code editing setup
 --   (B) Samsung TV landscape + Dell G3223Q landscape — media setup
--- Dell is always primary at origin (0,0).
-if output then
-    output.connect_signal("added", function(o)
+-- Dell is always primary at origin (0,0); first matching profile wins.
+require("fishlive.config.output").setup({
+    profiles = {
         -- Dell G3223Q: primary, 4K @ 144 Hz, landscape, origin
-        if o.name == "DP-3" or (o.make and o.make:match("Dell") and o.model and o.model:match("G3223Q")) then
-            o.mode = { width = 3840, height = 2160, refresh = 143963 }
-            o.transform = "normal"
-            o.position = { x = 0, y = 0 }
+        { match = { name = "DP-3" },
+          apply = { mode = { width = 3840, height = 2160, refresh = 143963 },
+                    transform = "normal",
+                    position  = { x = 0, y = 0 } } },
+        { match = { make = "Dell", model = "G3223Q" },
+          apply = { mode = { width = 3840, height = 2160, refresh = 143963 },
+                    transform = "normal",
+                    position  = { x = 0, y = 0 } } },
+
         -- HP U28 4K HDR: portrait left of Dell (transform 90 verified live).
         -- Native 3840x2160 → logical 2160x3840 after rotation.
-        elseif o.name == "DP-2" or (o.make and o.make:match("HP") and o.model and o.model:match("HP U28")) then
-            o.mode = { width = 3840, height = 2160, refresh = 59997 }
-            o.transform = "90"
-            o.position = { x = -2160, y = 0 }
+        { match = { name = "DP-2" },
+          apply = { mode = { width = 3840, height = 2160, refresh = 59997 },
+                    transform = "90",
+                    position  = { x = -2160, y = 0 } } },
+        { match = { make = "HP", model = "HP U28" },
+          apply = { mode = { width = 3840, height = 2160, refresh = 59997 },
+                    transform = "90",
+                    position  = { x = -2160, y = 0 } } },
+
         -- Samsung TV: landscape right of Dell
-        elseif o.make and o.make:match("Samsung") then
-            o.transform = "normal"
-            o.position = { x = 3840, y = 0 }
-        end
-        -- Laptop internal panel HiDPI
-        if o.name:match("^eDP") then
-            o.scale = 1.5
-        end
-    end)
-end
+        { match = { make = "Samsung" },
+          apply = { transform = "normal",
+                    position  = { x = 3840, y = 0 } } },
+    },
+    laptop_scale = 1.5,
+})
 -- }}}
 
 -- {{{ Menus
