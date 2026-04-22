@@ -22,6 +22,28 @@ local function focused_output()
 	return s and s.output and s.output.name or "screen"
 end
 
+--- Return the name of the active mic (default input source) if it is a real
+-- microphone and currently unmuted. Monitor sources (speaker loopbacks) and
+-- muted sources are treated as "no mic" so we silently fall back to capturing
+-- only the system audio output.
+local function active_mic()
+	local p = io.popen("pactl get-default-source 2>/dev/null")
+	if not p then return nil end
+	local src = p:read("*l")
+	p:close()
+	if not src or src == "" or src:match("%.monitor$") then
+		return nil
+	end
+	local m = io.popen("pactl get-source-mute '" .. src .. "' 2>/dev/null")
+	if not m then return nil end
+	local mute = m:read("*l")
+	m:close()
+	if mute and mute:match("Mute:%s*no") then
+		return src
+	end
+	return nil
+end
+
 function M.is_running()
 	local f = io.open(pid_file, "r")
 	if not f then return false end
@@ -40,6 +62,11 @@ function M.toggle()
 	else
 		local output = focused_output()
 		local outfile = os.getenv("HOME") .. "/Videos/rec-" .. os.date("%Y%m%d-%H%M%S") .. ".mkv"
+		local mic = active_mic()
+		-- Merge system output and mic into a single audio track so every
+		-- player plays back both without needing per-track selection. Pipe
+		-- separator is the gpu-screen-recorder syntax for merged sources.
+		local audio_source = mic and ("default_output|" .. mic) or "default_output"
 		awful.spawn.with_shell(
 			"gpu-screen-recorder"
 			.. " -w " .. output
@@ -48,7 +75,7 @@ function M.toggle()
 			.. " -q very_high"
 			.. " -bm vbr"
 			.. " -ac opus"
-			.. " -a default_output"
+			.. " -a '" .. audio_source .. "'"
 			.. " -fm cfr"
 			.. " -cursor yes"
 			.. " -cr full"
@@ -56,7 +83,12 @@ function M.toggle()
 			.. " -o " .. outfile
 			.. " & echo $! > " .. pid_file
 		)
-		naughty.notification({ title = "Recording", message = "Started (" .. output .. "): " .. outfile, timeout = 3 })
+		local mic_msg = mic and (" + mic") or ""
+		naughty.notification({
+			title = "Recording",
+			message = "Started (" .. output .. mic_msg .. "): " .. outfile,
+			timeout = 3,
+		})
 	end
 end
 
