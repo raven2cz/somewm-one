@@ -18,6 +18,7 @@
 
 local awful = require("awful")
 local ruled = require("ruled")
+local client_fixes = require("fishlive.config.client_fixes")
 local lgi_ok, lgi = pcall(require, "lgi")
 local cairo = lgi_ok and lgi.cairo or _G.cairo
 
@@ -118,12 +119,7 @@ function M.setup()
 			titlebars_enabled = true,
 		},
 		callback   = function(c)
-			local bw2 = 2 * (c.border_width or 0)
-			local cw = c.width - bw2
-			local ch = c.height - bw2
-			if cw > 0 and ch > 0 then
-				c.aspect_ratio = cw / ch
-			end
+			client_fixes.update_mpv_aspect(c)
 			awful.placement.centered(c, nil)
 		end
 	}
