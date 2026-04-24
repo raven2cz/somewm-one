@@ -11,6 +11,8 @@
 ---------------------------------------------------------------------------
 
 local wibox = require("wibox")
+local awful = require("awful")
+local gears = require("gears")
 local beautiful = require("beautiful")
 local broker = require("fishlive.broker")
 local wh = require("fishlive.widget_helper")
@@ -27,6 +29,16 @@ function M.create(screen, config)
 	broker.connect_signal("data::disk", function(data)
 		update(data.icon, string.format("%s/%s GB %2d%%", data.used, data.total, data.percent))
 	end)
+
+	-- Left-click: open the storage detail panel pinned to this screen.
+	local screen_name = screen and screen.name or ""
+	widget:buttons(gears.table.join(awful.button({}, 1, function()
+		awful.spawn({
+			"qs", "ipc", "-c", "somewm", "call",
+			"somewm-shell:panels", "toggleOnScreen",
+			"storage-detail", screen_name,
+		}, false)
+	end)))
 
 	return widget
 end
