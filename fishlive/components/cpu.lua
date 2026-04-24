@@ -11,6 +11,8 @@
 ---------------------------------------------------------------------------
 
 local wibox = require("wibox")
+local awful = require("awful")
+local gears = require("gears")
 local beautiful = require("beautiful")
 local broker = require("fishlive.broker")
 local wh = require("fishlive.widget_helper")
@@ -31,6 +33,19 @@ function M.create(screen, config)
 			update(data.icon, string.format("%3d%%", data.usage))
 		end
 	end)
+
+	-- Left-click: open the CPU detail panel on this screen (captured
+	-- closure — the per-screen widget is per-screen so `screen` is fixed).
+	-- Same toggleOnScreen pattern as memory/storage widgets so a wibar
+	-- click on a non-focused output opens the panel on that output.
+	local screen_name = screen and screen.name or ""
+	widget:buttons(gears.table.join(awful.button({}, 1, function()
+		awful.spawn({
+			"qs", "ipc", "-c", "somewm", "call",
+			"somewm-shell:panels", "toggleOnScreen",
+			"cpu-detail", screen_name,
+		}, false)
+	end)))
 
 	return widget
 end
