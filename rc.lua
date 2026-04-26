@@ -11,19 +11,25 @@
 
 pcall(require, "luarocks.loader")
 
+-- Startup timer (zero deps; opens ~/.local/log/somewm-startup.log on first mark).
+-- One-shot diagnostic for finding the >25 s startup-block — remove the marks
+-- after the slow phase is identified and fixed.
+local ST = require("fishlive.startup_timer")
+ST.mark("rc:start")
+
 -- Standard libraries
-local gears = require("gears")
-local awful = require("awful")
-require("awful.autofocus")
-local wibox = require("wibox")
-local beautiful = require("beautiful")
-local naughty = require("naughty")
-local dpi = require("beautiful.xresources").apply_dpi
-require("awful.hotkeys_popup.keys")
-local machi = require("layout-machi")
+local gears = require("gears");                                ST.mark("rc:require:gears")
+local awful = require("awful");                                ST.mark("rc:require:awful")
+require("awful.autofocus");                                    ST.mark("rc:require:autofocus")
+local wibox = require("wibox");                                ST.mark("rc:require:wibox")
+local beautiful = require("beautiful");                        ST.mark("rc:require:beautiful")
+local naughty = require("naughty");                            ST.mark("rc:require:naughty")
+local dpi = require("beautiful.xresources").apply_dpi;         ST.mark("rc:require:xresources")
+require("awful.hotkeys_popup.keys");                           ST.mark("rc:require:hotkeys_popup")
+local machi = require("layout-machi");                         ST.mark("rc:require:layout-machi")
 
 -- Fishlive component framework
-require("fishlive.services")
+require("fishlive.services");                                  ST.mark("rc:require:fishlive.services")
 
 -- {{{ Error handling + log aggregation
 local error_log_path = os.getenv("HOME") .. "/.local/log/somewm-errors.log"
@@ -69,9 +75,10 @@ end
 local themes_service = require("fishlive.services.themes")
 local themeName = themes_service.get_current()
 beautiful.init(gears.filesystem.get_configuration_dir() .. "themes/" .. themeName .. "/theme.lua")
+ST.mark("rc:beautiful.init")
 
-pcall(function() require("lockscreen").init() end)
-pcall(function() require("fishlive.exit_screen").init() end)
+pcall(function() require("lockscreen").init() end);            ST.mark("rc:lockscreen.init")
+pcall(function() require("fishlive.exit_screen").init() end);  ST.mark("rc:exit_screen.init")
 -- }}}
 
 -- {{{ User preferences
@@ -115,6 +122,7 @@ end)
 --   (A) HP U28 portrait + Dell G3223Q landscape   — code editing setup
 --   (B) Samsung TV landscape + Dell G3223Q landscape — media setup
 -- Dell is always primary at origin (0,0); first matching profile wins.
+ST.mark("rc:before:output.setup")
 require("fishlive.config.output").setup({
     profiles = {
         -- Dell G3223Q: primary, 4K @ 144 Hz, landscape, origin
@@ -145,6 +153,7 @@ require("fishlive.config.output").setup({
     },
     laptop_scale = 1.5,
 })
+ST.mark("rc:after:output.setup")
 -- }}}
 
 -- {{{ Menus
@@ -152,6 +161,7 @@ local menus = require("fishlive.config.menus").setup({
     terminal   = terminal,
     editor_cmd = editor_cmd,
 })
+ST.mark("rc:after:menus.setup")
 -- }}}
 
 -- {{{ Screen decoration (wibar, taglist, tasklist, wallpaper)
@@ -159,6 +169,7 @@ require("fishlive.config.screen").setup({
     modkey   = modkey,
     launcher = menus.launcher,
 })
+ST.mark("rc:after:screen.setup")
 -- }}}
 
 -- {{{ Keybindings
@@ -171,16 +182,17 @@ require("fishlive.config.keybindings").setup({
     desktop_menu   = menus.desktop_menu,
     portraits_menu = menus.portraits_menu,
 })
+ST.mark("rc:after:keybindings.setup")
 -- }}}
 
 -- {{{ Rules, client fixes, titlebars, notifications
 -- ORDER MATTERS: rules.setup() must run first. titlebars/client_fixes
 -- connect signals (request::titlebars, property::position/size) that
 -- only fire for clients already classified by the rule engine.
-require("fishlive.config.rules").setup()
-require("fishlive.config.titlebars").setup()
-require("fishlive.config.client_fixes").setup()
-require("fishlive.components.notifications")
+require("fishlive.config.rules").setup();          ST.mark("rc:after:rules.setup")
+require("fishlive.config.titlebars").setup();      ST.mark("rc:after:titlebars.setup")
+require("fishlive.config.client_fixes").setup();   ST.mark("rc:after:client_fixes.setup")
+require("fishlive.components.notifications");      ST.mark("rc:after:notifications")
 -- }}}
 
 -- Master-Slave layout: new clients go to slave
@@ -228,7 +240,7 @@ autostart.add{
 -- and exits immediately, so it is the cheapest way to wake XWayland.
 awful.spawn.easy_async({ "xprop", "-root", "_NET_SUPPORTED" }, function() end)
 
-autostart.start_all()
+autostart.start_all();                             ST.mark("rc:after:autostart_start")
 
 awful.spawn.easy_async(os.getenv("HOME") .. "/git/github/somewm/plans/project/somewm-shell/theme-export.sh", function()
     awful.spawn.easy_async_with_shell(
@@ -240,11 +252,11 @@ awful.spawn.easy_async(os.getenv("HOME") .. "/git/github/somewm/plans/project/so
         .. "sleep 1",
         function() awful.spawn("qs -c somewm -n -d") end
     )
-end)
+end);                                              ST.mark("rc:spawn.async:theme-export+qs")
 -- }}}
 
 -- {{{ Shell IPC (push state to QuickShell)
-require("fishlive.config.shell_ipc").setup()
+require("fishlive.config.shell_ipc").setup();      ST.mark("rc:after:shell_ipc.setup")
 -- }}}
 
 -- {{{ Animations
@@ -270,7 +282,7 @@ pcall(function()
             no_corners    = { "steam_app_*", "Wine", "Xwayland" },
         },
     })
-end)
+end);                                              ST.mark("rc:after:anim_client.enable")
 
 pcall(function()
     require("somewm.tag_slide").enable({
@@ -278,5 +290,10 @@ pcall(function()
         easing    = "ease-out-cubic",
         wallpaper = { enabled = true },
     })
-end)
+end);                                              ST.mark("rc:after:tag_slide.enable")
 -- }}}
+
+-- Final boundary. After this rc.lua returns control to C; subsequent marks
+-- (request::desktop_decoration callbacks etc.) come from inside fishlive
+-- modules and we'll see them as ST.mark("screen:..") in the same log.
+ST.mark("rc:end-of-file")

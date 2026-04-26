@@ -23,6 +23,7 @@ local gears = require("gears")
 local wibox = require("wibox")
 local beautiful = require("beautiful")
 local factory = require("fishlive.factory")
+local ST = require("fishlive.startup_timer")
 
 local M = {}
 
@@ -46,6 +47,8 @@ function M.setup(args)
 	local theme_name = beautiful.theme_name or "default"
 
 	screen.connect_signal("request::desktop_decoration", function(s)
+		local _scr_label = (s.output and s.output.name) or ("idx" .. tostring(s.index))
+		ST.mark("screen[" .. _scr_label .. "]:decoration:start")
 		-- Restore saved tags if this output was previously removed (hotplug)
 		local output_name = s.output and s.output.name
 		local restore = output_name and awful.permissions.saved_tags
@@ -76,6 +79,7 @@ function M.setup(args)
 		else
 			awful.tag({ "1", "2", "3", "4", "5", "6", "7", "8", "9" }, s, awful.layout.layouts[1])
 		end
+		ST.mark("screen[" .. _scr_label .. "]:tags-ready")
 
 		-- Promptbox, taglist, tasklist
 		s.mypromptbox = awful.widget.prompt()
@@ -110,6 +114,7 @@ function M.setup(args)
 			}
 		}
 
+		ST.mark("screen[" .. _scr_label .. "]:taglist+tasklist-ready")
 		-- Wibar (visual params from theme: wibar_*, shadow_drawin_*)
 		s.mywibox = awful.wibar {
 			position     = beautiful.wibar_position or "top",
@@ -136,6 +141,8 @@ function M.setup(args)
 			}
 		}
 
+		ST.mark("screen[" .. _scr_label .. "]:wibar-ready")
+
 		-- Tag-based Wallpaper System
 		local wppath = beautiful.wallpaper_dir
 			or (gears.filesystem.get_configuration_dir()
@@ -147,6 +154,7 @@ function M.setup(args)
 				os.getenv("HOME") .. "/Pictures/wallpapers",
 			}
 		})
+		ST.mark("screen[" .. _scr_label .. "]:decoration:end (wallpaper.init returned)")
 	end)
 end
 

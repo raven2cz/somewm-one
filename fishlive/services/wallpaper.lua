@@ -50,6 +50,7 @@ local awful = require("awful")
 local gears = require("gears")
 local wibox = require("wibox")
 local broker = require("fishlive.broker")
+local ST = require("fishlive.startup_timer")
 
 local wallpaper = {}
 
@@ -458,6 +459,8 @@ end
 -- @tparam[opt="1.jpg"] string default_wallpaper Default fallback filename
 -- @tparam[opt] table opts Options: { browse_dirs = {"/path1", "/path2"} }
 function wallpaper.init(scr, wppath, default_wallpaper, opts)
+	local _scr_label = (scr.output and scr.output.name) or ("idx" .. tostring(scr.index))
+	ST.mark("wp[" .. _scr_label .. "]:init:start")
 	wallpaper._wppath = wppath
 	wallpaper._user_wppath = wppath:gsub("wallpapers/$", "user-wallpapers/")
 	wallpaper._default_wppath = gears.filesystem.get_configuration_dir()
@@ -479,7 +482,9 @@ function wallpaper.init(scr, wppath, default_wallpaper, opts)
 	local first_tag = scr.tags and scr.tags[1]
 	local init_tag = first_tag and first_tag.name or "1"
 	local path = wallpaper._resolve_for_screen(scr, init_tag)
+	ST.mark("wp[" .. _scr_label .. "]:before:apply_wallpaper(active-tag)")
 	if path then apply_wallpaper(scr, path) end
+	ST.mark("wp[" .. _scr_label .. "]:after:apply_wallpaper(active-tag)")
 
 	-- Pre-cache all resolved wallpapers for tag_slide animation overlays.
 	-- Clear stale cache only ONCE per session — cache_clear() is global (wipes
@@ -489,6 +494,7 @@ function wallpaper.init(scr, wppath, default_wallpaper, opts)
 	if root.wallpaper_cache_clear and not wallpaper._cache_cleared_this_session then
 		root.wallpaper_cache_clear()
 		wallpaper._cache_cleared_this_session = true
+		ST.mark("wp[" .. _scr_label .. "]:cache_clear")
 	end
 	if root.wallpaper_cache_preload then
 		local paths = {}
@@ -496,7 +502,9 @@ function wallpaper.init(scr, wppath, default_wallpaper, opts)
 			local wp = wallpaper._resolve_for_screen(scr, tag.name)
 			if wp then table.insert(paths, wp) end
 		end
+		ST.mark("wp[" .. _scr_label .. "]:before:cache_preload(" .. #paths .. " paths)")
 		if #paths > 0 then root.wallpaper_cache_preload(paths, scr, { fit = "cover" }) end
+		ST.mark("wp[" .. _scr_label .. "]:after:cache_preload")
 	end
 
 	-- Switch wallpaper on tag selection
@@ -536,6 +544,7 @@ function wallpaper.init(scr, wppath, default_wallpaper, opts)
 			if #paths > 0 then root.wallpaper_cache_preload(paths, s, { fit = "cover" }) end
 		end
 	end)
+	ST.mark("wp[" .. _scr_label .. "]:init:end")
 end
 
 -------------------------------------------------------------------------
