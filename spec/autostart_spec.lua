@@ -472,6 +472,37 @@ describe("autostart.entry", function()
 		for _ in pairs(e._active_timers) do pending = pending + 1 end
 		assert.are.equal(1, pending)
 	end)
+
+	it("cached-gate replay during connect_signal cancels the timeout", function()
+		-- Regression: gate is ALREADY cached at start() time, so
+		-- broker.connect_signal fires the callback synchronously inside
+		-- the subscribe loop. If the timeout was scheduled AFTER the
+		-- subscribe loop, the bump_generation done by fire_gate_check
+		-- would have nothing to cancel (timeout not yet armed), and
+		-- start_gated would then arm the timeout in the SAME post-bump
+		-- generation as the just-scheduled delay timer. With timeout <
+		-- delay this fires the timeout first → state=failed → then the
+		-- delay timer still spawns. Scheduling timeout BEFORE the
+		-- subscribe loop fixes this.
+		broker.emit_signal("ready::somewm", true)  -- cache the gate
+		local e = make_entry{
+			name = "cached_race", cmd = { "x" }, mode = "oneshot",
+			when = { "ready::somewm" }, delay = 5, timeout = 2,
+		}
+		e:start()
+		-- After start_gated returned, only the delay timer should be
+		-- pending. The pre-subscribe timeout was cancelled by the
+		-- synchronous fire_gate_check during connect_signal.
+		assert.are.equal(1, timer.pending_count())
+		local alive
+		for _, h in ipairs(timer._pending) do
+			if not h._cancelled then alive = h; break end
+		end
+		assert.are.equal(5, alive._delay)
+		-- Fire the delay timer; entry must reach running, NEVER failed.
+		timer.fire_all()
+		assert.are.equal("running", e:state())
+	end)
 end)
 
 ---------------------------------------------------------------------------

@@ -306,28 +306,15 @@ local function start_gated(self)
 	self._state = "gated"
 	recompute_waiting(self)
 
-	-- Subscribe to all gate signals; broker fires synchronously with cached
-	-- value if any (late join), so a fully-satisfied entry transitions
-	-- immediately on the first connect.
-	local broker = self._deps.broker
-	for _, name in ipairs(self.spec.when) do
-		local d = broker.connect_signal(name, function()
-			fire_gate_check(self)
-		end)
-		self._gate_disconnects[#self._gate_disconnects + 1] = d
-	end
-
-	-- Emit event AFTER subscriptions but BEFORE the timeout: we may have
-	-- already transitioned out via the late-join replay.
-	if self._state ~= "gated" then return end
-
-	emit_event(self, {
-		state = "gated",
-		attempt = self._attempts,
-		waiting_for = self._waiting_for,
-	})
-
-	-- Timeout: if still in gated after `timeout` s, escalate to failed.
+	-- Schedule the gate timeout BEFORE subscribing. broker.connect_signal can
+	-- fire synchronously with a cached value (late-join replay), and the
+	-- callback path (fire_gate_check) calls bump_generation. Scheduling the
+	-- timeout AFTER the subscribe loop would let it land in the post-bump
+	-- generation alongside the just-scheduled delay timer, racing the spawn:
+	-- if timeout < delay, the timeout fires first and marks the entry
+	-- "failed" while the delay timer is still on its way to spawn, leaving a
+	-- failed entry with a live PID. Scheduling first means bump_generation
+	-- cancels this timer cleanly when the cached gates fire.
 	if self.spec.timeout and self.spec.timeout > 0 then
 		schedule(self, self.spec.timeout, function()
 			if self._state ~= "gated" then return end
@@ -341,6 +328,32 @@ local function start_gated(self)
 			})
 		end)
 	end
+
+	local gen_before_subscribe = self._generation
+
+	-- Subscribe to all gate signals; broker fires synchronously with cached
+	-- value if any (late join), so a fully-satisfied entry transitions
+	-- immediately on the first connect.
+	local broker = self._deps.broker
+	for _, name in ipairs(self.spec.when) do
+		local d = broker.connect_signal(name, function()
+			fire_gate_check(self)
+		end)
+		self._gate_disconnects[#self._gate_disconnects + 1] = d
+	end
+
+	-- If a synchronous late-join replay during the subscribe loop already
+	-- bumped the generation (i.e. fire_gate_check ran), we already committed
+	-- to delay-then-start (or are mid-transition out of gated) -- emitting a
+	-- "gated" log event now would be misleading.
+	if self._generation ~= gen_before_subscribe then return end
+	if self._state ~= "gated" then return end
+
+	emit_event(self, {
+		state = "gated",
+		attempt = self._attempts,
+		waiting_for = self._waiting_for,
+	})
 end
 
 ---------------------------------------------------------------------------
