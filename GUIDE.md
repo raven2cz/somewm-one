@@ -284,6 +284,73 @@ changes that cross the boundary.
 `fishlive/config/keybindings.lua` exposes `M.setup(args)`. Add your
 binding there — do not put `awful.key` calls in `rc.lua`.
 
+### Adding an autostart entry
+
+`fishlive.autostart` replaces the broken `xdg-desktop-autostart.target`
+pipeline (and naive `awful.spawn.once`) with a Wayland-aware scheduler:
+gates on `ready::*` broker signals, retry+backoff supervision, per-entry
+logs, IPC status, and hot-reload carryover for oneshot launchers.
+
+In `rc.lua`:
+
+```lua
+local autostart = require("fishlive.autostart")
+
+autostart.add{
+    name = "nm-applet",
+    cmd  = { "nm-applet" },
+    mode = "respawn",
+}
+
+autostart.add{
+    name = "blueman-applet",
+    cmd  = { "blueman-applet" },
+    when = { "ready::tray" },          -- wait for tray protocol
+    mode = "respawn",
+}
+
+autostart.add{
+    name = "synology-drive",
+    cmd  = { "synology-drive" },
+    when = { "ready::xwayland" },      -- wait for XWayland to be live
+    mode = "oneshot",                  -- launcher forks daemons, exits 0
+}
+
+-- Wake lazy XWayland once before start_all() so ready::xwayland fires.
+awful.spawn.easy_async({ "xprop", "-root", "_NET_SUPPORTED" }, function() end)
+
+autostart.start_all()
+```
+
+Decision tree for new entries:
+
+- **`mode`** — does the program stay alive (`"respawn"`) or fork+exit
+  (`"oneshot"`, default)?
+- **`when`** — `"ready::tray"` for system tray icons, `"ready::xwayland"`
+  for X11 clients, `"ready::portal"` for portal-dependent apps,
+  `"ready::somewm"` for anything touching the compositor protocol.
+- **`delay`** — seconds to wait after gates pass; useful for staggering.
+- **`retries`** — overrides default (oneshot 1, respawn -1/infinite).
+
+Inspect at runtime:
+
+```bash
+somewm-client eval '
+  local s = require("fishlive.autostart").status()
+  for n, e in pairs(s.entries) do
+      print(n, e.state, e.pid or "-", "attempts=" .. e.attempts)
+  end'
+
+somewm-client eval 'return require("fishlive.autostart").restart("nm-applet")'
+somewm-client eval 'return require("fishlive.autostart").stop("nm-applet")'
+```
+
+Logs land in `$XDG_STATE_HOME/somewm/autostart/<name>.log` (rotated at
+1 MiB).
+
+Full reference (state machine, gate evaluation, hot-reload protocol,
+shutdown phases, provider bridge): [../../docs/fishlive-autostart.md](../../docs/fishlive-autostart.md).
+
 ## Directory structure
 
 ```
@@ -302,6 +369,13 @@ plans/project/somewm-one/
 │   ├── widget_helper.lua   # widget/layout helpers
 │   ├── menu.lua            # menu builder
 │   ├── exit_screen.lua     # logout/shutdown overlay
+│   │
+│   ├── autostart/          # Wayland-native autostart (replaces XDG)
+│   │   ├── init.lua        # public API + scheduler + hot-reload
+│   │   ├── entry.lua       # per-entry state machine
+│   │   ├── providers.lua   # ready::* signal bridge (compositor + D-Bus)
+│   │   ├── spawn.lua       # spawn backends
+│   │   └── log.lua         # per-entry log file with rotation
 │   │
 │   ├── config/             # everything rc.lua calls .setup() on
 │   │   ├── keybindings.lua

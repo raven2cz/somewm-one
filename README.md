@@ -71,6 +71,7 @@ is `Mod4` (Super).
 |----------|--------------|
 | [**GUIDE.md**](GUIDE.md) | Architecture, fishlive framework, load-order invariant, development workflow, adding new services/components/keybindings |
 | [**STYLE.md**](STYLE.md) | File headers, module init conventions (`.setup()` pattern), IPC naming |
+| [fishlive.autostart](../../docs/fishlive-autostart.md) | Wayland-native autostart reference: state machine, gates, hot-reload, IPC inspection |
 | [somewm-shell IPC](https://github.com/raven2cz/somewm-shell/blob/main/IPC.md) | Full Lua ↔ Shell contract (handlers + `awesome._*` globals) |
 
 ## Repository layout
