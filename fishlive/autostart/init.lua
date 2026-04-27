@@ -49,6 +49,52 @@ local state = {
 }
 
 ---------------------------------------------------------------------------
+-- Hot-reload carryover for oneshot "done" state.
+--
+-- Without this, awesome.restart() rebuilds the Lua VM and the new
+-- rc.lua's start_all() respawns every oneshot launcher even though the
+-- detached child it forked is still alive in the OS. Apps with GTK
+-- single-instance dedupe survive this; everything else gets duplicated
+-- (synology-drive, anything that exec()s a separate daemon).
+--
+-- The set is persisted to a file in XDG_RUNTIME_DIR at compositor exit
+-- and read back by start_all(), guarded by awesome._restart so a real
+-- cold boot (or full process restart) still spawns oneshots normally.
+-- A stale file from a crashed compositor is harmless: cold boot ignores
+-- it, and the next exit overwrites it.
+---------------------------------------------------------------------------
+
+local DONE_LIST_FILENAME = "somewm-autostart-done.list"
+
+local function done_list_path()
+	local dir = os.getenv("XDG_RUNTIME_DIR")
+	if not dir or dir == "" then return nil end
+	return dir .. "/" .. DONE_LIST_FILENAME
+end
+
+local function default_load_done_set()
+	local path = done_list_path()
+	if not path then return {} end
+	local f = io.open(path, "r")
+	if not f then return {} end
+	local out = {}
+	for line in f:lines() do
+		if line ~= "" then out[line] = true end
+	end
+	f:close()
+	return out
+end
+
+local function default_save_done_set(names)
+	local path = done_list_path()
+	if not path then return end
+	local f = io.open(path, "w")
+	if not f then return end
+	for n in pairs(names) do f:write(n, "\n") end
+	f:close()
+end
+
+---------------------------------------------------------------------------
 -- Helpers
 ---------------------------------------------------------------------------
 
@@ -131,9 +177,35 @@ function autostart.start_all()
 		deps = { awesome = awesome_caps },
 	}
 
+	-- Hot-reload carryover: skip oneshot entries that already completed
+	-- in the previous Lua VM. Cold boot has awesome._restart == nil so
+	-- the file is ignored and oneshots run as expected.
+	local done_set = {}
+	if awesome_caps and awesome_caps._restart then
+		local load_fn = (state.deps.persist and state.deps.persist.load_done_set)
+			or default_load_done_set
+		local ok, set = pcall(load_fn)
+		if ok and type(set) == "table" then done_set = set end
+	end
+
 	for _, name in ipairs(state.order) do
 		local e = state.entries[name]
-		if e then e:start() end
+		if e then
+			if done_set[name] and e.spec.mode == "oneshot" then
+				e._state = "done"
+				if e._deps.log then
+					pcall(function()
+						e._deps.log:event{
+							state = "done",
+							attempt = 0,
+							reason = "hot_reload_carryover",
+						}
+					end)
+				end
+			else
+				e:start()
+			end
+		end
 	end
 
 	-- Hook compositor exit to gracefully stop respawn-mode entries.
@@ -204,6 +276,20 @@ end
 local SHUTDOWN_GRACE_SECONDS = 2
 
 function autostart._on_exit()
+	-- Persist done-oneshot names so the next Lua VM's start_all() can
+	-- skip them on hot reload (see start_all comment). Best-effort: a
+	-- failed write just means the new VM will respawn the launcher,
+	-- which is the same as without this feature.
+	local done_names = {}
+	for name, e in pairs(state.entries) do
+		if e.spec.mode == "oneshot" and e._state == "done" then
+			done_names[name] = true
+		end
+	end
+	local save_fn = (state.deps.persist and state.deps.persist.save_done_set)
+		or default_save_done_set
+	pcall(save_fn, done_names)
+
 	-- Phase 1: synchronous SIGTERM to every respawn entry. Collect the
 	-- PIDs we still need to verify so we can poll them in a single grace
 	-- loop instead of blocking serially per entry.

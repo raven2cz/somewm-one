@@ -635,4 +635,53 @@ describe("autostart.init", function()
 		local ok = autostart.stop("nope")
 		assert.is_false(ok)
 	end)
+
+	it("hot reload skips oneshot entries already in the carryover set", function()
+		-- Simulate a hot-reload: awesome._restart=true and the persist
+		-- store reports the previous VM's done oneshots. start_all()
+		-- must NOT spawn those entries again -- it must mark them done.
+		_G.awesome._restart = true
+		local saved
+		autostart._set_deps{
+			broker = broker, timer = timer, spawn = spawn,
+			awesome = _G.awesome,
+			persist = {
+				load_done_set = function()
+					return { ["syno-launcher"] = true }
+				end,
+				save_done_set = function(names) saved = names end,
+			},
+		}
+		broker.emit_signal("ready::xwayland", true)
+		autostart.add{
+			name = "syno-launcher", cmd = { "syno" },
+			mode = "oneshot", when = { "ready::xwayland" }, delay = 0,
+		}
+		autostart.start_all()
+		assert.are.equal("done", autostart.status().entries["syno-launcher"].state)
+		assert.are.equal(0, #spawn._calls)  -- never spawned
+		_G.awesome._restart = nil
+	end)
+
+	it("cold boot ignores the carryover set (awesome._restart nil)", function()
+		_G.awesome._restart = nil
+		autostart._set_deps{
+			broker = broker, timer = timer, spawn = spawn,
+			awesome = _G.awesome,
+			persist = {
+				load_done_set = function()
+					return { ["fresh"] = true }
+				end,
+				save_done_set = function() end,
+			},
+		}
+		broker.emit_signal("ready::somewm", true)
+		autostart.add{
+			name = "fresh", cmd = { "x" }, mode = "oneshot",
+			when = { "ready::somewm" }, delay = 0,
+		}
+		autostart.start_all()
+		-- Ignored carryover -> entry actually spawned.
+		assert.are.equal(1, #spawn._calls)
+	end)
 end)
