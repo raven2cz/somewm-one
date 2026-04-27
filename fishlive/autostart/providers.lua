@@ -51,7 +51,7 @@ end
 ---------------------------------------------------------------------------
 
 local state = {
-	broker         = nil,           -- fishlive.broker
+	broker         = nil,           -- fishlive.broker (or fallback via require)
 	bus_connection = nil,           -- Gio.DBusConnection or nil until bus_get fires
 	watch_ids      = {},            -- name → watcher id
 	pending_names  = {},            -- names requested before bus_connection ready
@@ -59,9 +59,25 @@ local state = {
 	deps           = {},            -- injected for tests
 }
 
+-- Resolve the broker even if providers.setup() has not been called yet.
+-- request_dbus_name() can be invoked from autostart.add() before start_all()
+-- runs setup(), and a D-Bus name that is already owned will fire `appeared`
+-- as soon as the watcher registers. Without a fallback the early emit gets
+-- silently dropped and gates would only fire on the next ownership change.
+local function resolve_broker()
+	if state.broker then return state.broker end
+	local ok, broker = pcall(require, "fishlive.broker")
+	if ok then
+		state.broker = broker
+		return broker
+	end
+	return nil
+end
+
 local function broker_emit(name, value)
-	if not state.broker then return end
-	state.broker.emit_signal(name, value)
+	local broker = resolve_broker()
+	if not broker then return end
+	broker.emit_signal(name, value)
 end
 
 ---------------------------------------------------------------------------
