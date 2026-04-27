@@ -194,7 +194,15 @@ client.connect_signal("mouse::enter", function(c)
 end)
 
 -- {{{ Autostart
-awful.spawn.once("nm-applet")
+local autostart = require("fishlive.autostart")
+
+autostart.add{
+    name = "nm-applet",
+    cmd  = { "nm-applet" },
+    mode = "respawn",
+}
+
+autostart.start_all()
 
 awful.spawn.easy_async(os.getenv("HOME") .. "/git/github/somewm/plans/project/somewm-shell/theme-export.sh", function()
     awful.spawn.easy_async_with_shell(
