@@ -4,7 +4,13 @@
 -- Lifecycle:
 --   pending → gated → starting → running → died → restart_pending → starting
 --                                       ↓                                  ↓
---                                     failed (terminal until restart) ←────┘
+--                                     failed (terminal until restart) ←────┤
+--                                       ↓                                  │
+--                                      done (terminal — oneshot success)   │
+--                                                                          │
+-- A oneshot entry whose process exits 0 lands in `done` instead of going
+-- through the retry path, which keeps launchers like synology-drive
+-- (fork-and-exit-0) from crash-looping forever.
 --
 -- Each transition increments an internal generation counter. All timers,
 -- gate subscriptions and spawn-exit callbacks check the generation before
@@ -335,6 +341,21 @@ end
 ---------------------------------------------------------------------------
 
 function Entry:_after_death()
+	-- Oneshot success: exit 0 is the contract. Park in `done` instead of
+	-- treating it as a crash + walking the retry path. Without this the
+	-- entry would always fall through to `failed` (oneshot default
+	-- retries=1, attempts=1 after the spawn, exhausted=true) even though
+	-- the process did exactly what we asked.
+	if self.spec.mode == "oneshot" and self._exit_code == 0 then
+		self._state = "done"
+		emit_event(self, {
+			state = "done",
+			attempt = self._attempts,
+			exit = self._exit_code,
+		})
+		return
+	end
+
 	-- Reset attempt counter if process stayed alive long enough.
 	if self._started_at and self._died_at and (self._died_at - self._started_at) >= BACKOFF_RESET_SECONDS then
 		self._attempts = 0
@@ -448,12 +469,14 @@ function Entry:stop()
 	emit_event(self, { state = "pending", attempt = self._attempts, reason = "stopped" })
 end
 
---- Manually restart this entry from `failed`.
--- Resets attempts and re-enters the gated state.
+--- Manually restart this entry from a terminal state.
+-- Resets attempts and re-enters the gated state. Valid from `failed`,
+-- `died`, or `done` (re-running a oneshot launcher is a legitimate
+-- use case — e.g. manually re-trigger synology-drive after a logout).
 -- For other states this is a no-op (use stop()+start() if you really
 -- want to restart a running entry).
 function Entry:restart()
-	if self._state ~= "failed" and self._state ~= "died" then
+	if self._state ~= "failed" and self._state ~= "died" and self._state ~= "done" then
 		return false
 	end
 	self._attempts = 0

@@ -351,6 +351,43 @@ describe("autostart.entry", function()
 		assert.is_true(found)
 	end)
 
+	it("oneshot exit=0 lands in done (launcher contract)", function()
+		broker.emit_signal("ready::somewm", true)
+		local e = make_entry{ name = "ok", cmd = { "x" }, mode = "oneshot", delay = 0 }
+		e:start()
+		assert.are.equal("running", e:state())
+		spawn._last_exit("exit", 0)
+		assert.are.equal("done", e:state())
+		assert.are.equal(0, e._exit_code)
+	end)
+
+	it("oneshot exit!=0 still goes to failed (retries=1 default)", function()
+		broker.emit_signal("ready::somewm", true)
+		local e = make_entry{ name = "ko", cmd = { "x" }, mode = "oneshot", delay = 0 }
+		e:start()
+		spawn._last_exit("exit", 1)
+		assert.are.equal("failed", e:state())
+	end)
+
+	it("respawn exit=0 is NOT terminal -- still walks retry path", function()
+		broker.emit_signal("ready::somewm", true)
+		local e = make_entry{ name = "rsp", cmd = { "x" }, mode = "respawn", retries = -1, delay = 0 }
+		e:start()
+		assert.are.equal("running", e:state())
+		spawn._last_exit("exit", 0)
+		assert.are.equal("restart_pending", e:state())
+	end)
+
+	it("restart() from done re-engages a oneshot launcher", function()
+		broker.emit_signal("ready::somewm", true)
+		local e = make_entry{ name = "redo", cmd = { "x" }, mode = "oneshot", delay = 0 }
+		e:start()
+		spawn._last_exit("exit", 0)
+		assert.are.equal("done", e:state())
+		assert.is_true(e:restart())
+		assert.are.equal("running", e:state())
+	end)
+
 	it("restart() from failed resets attempts and re-enters gated", function()
 		broker.emit_signal("ready::somewm", true)
 		spawn._fail_next = true
