@@ -159,14 +159,27 @@ end
 -- Termination helpers
 ---------------------------------------------------------------------------
 
---- Send a signal to a PID.
+--- Send a signal to a PID asynchronously.
 -- Uses /bin/kill via awful.spawn so we don't need an extra ffi binding.
+-- This routes through the GLib main loop and only fires after Lua yields.
 -- @tparam integer pid
 -- @tparam string sig POSIX name without "SIG", e.g. "TERM" or "KILL".
 function spawn_module.send_signal(pid, sig, deps)
 	if not pid then return end
 	local awful_spawn = (deps and deps.spawn) or require("awful.spawn")
 	awful_spawn.easy_async({ "kill", "-" .. sig, tostring(pid) }, function() end)
+end
+
+--- Send a signal synchronously via os.execute("kill ...").
+-- Used during compositor shutdown when the Lua VM is about to be torn
+-- down: easy_async would never fire because the GLib main loop stops
+-- iterating before the kill request leaves the queue, leaving the child
+-- as an orphan that the next Lua VM would then double-spawn.
+-- @tparam integer pid
+-- @tparam string sig POSIX name without "SIG", e.g. "TERM" or "KILL".
+function spawn_module.send_signal_sync(pid, sig)
+	if not pid then return end
+	os.execute("kill -" .. sig .. " " .. tostring(pid) .. " 2>/dev/null")
 end
 
 --- Check whether a PID is still alive (kill -0).

@@ -247,7 +247,8 @@ local function start_starting(self)
 		gates = self.spec.when,
 	})
 
-	local backend = require("fishlive.autostart.spawn").backend_for(self.spec.backend)
+	local spawn_mod = self._deps.spawn or require("fishlive.autostart.spawn")
+	local backend = spawn_mod.backend_for(self.spec.backend)
 	local gen = self._generation
 
 	local pid, err = backend({
@@ -353,13 +354,21 @@ function Entry:_after_death()
 			attempt = self._attempts,
 			exit = self._exit_code,
 		})
+		self._started_at = nil
 		return
 	end
 
-	-- Reset attempt counter if process stayed alive long enough.
-	if self._started_at and self._died_at and (self._died_at - self._started_at) >= BACKOFF_RESET_SECONDS then
+	-- Reset attempt counter if process stayed alive long enough. The reset
+	-- happens BEFORE the started_at clear so the runtime check still has
+	-- the original timestamps.
+	local healthy_runtime = self._started_at and self._died_at
+		and (self._died_at - self._started_at) >= BACKOFF_RESET_SECONDS
+	if healthy_runtime then
 		self._attempts = 0
 	end
+	-- Clear started_at so a subsequent spawn failure does not get
+	-- misclassified as "the process ran for hours" via stale timestamps.
+	self._started_at = nil
 
 	local retries = self.spec.retries
 	local exhausted = (retries >= 0) and (self._attempts >= retries)
@@ -376,7 +385,10 @@ function Entry:_after_death()
 	end
 
 	self._state = "restart_pending"
-	local delay = backoff_seconds(self.spec.delay, self._attempts)
+	-- Clamp attempt to ≥1 so the post-reset path still uses the base
+	-- delay (2^0 = 1) instead of half-base (2^-1 = 0.5).
+	local backoff_attempt = math.max(self._attempts, 1)
+	local delay = backoff_seconds(self.spec.delay, backoff_attempt)
 	emit_event(self, {
 		state = "restart_pending",
 		attempt = self._attempts,
@@ -400,12 +412,9 @@ function Entry:_on_exit(reason, code)
 		runtime = runtime,
 	})
 	self._state = "died"
-	local prior_pid = self._pid
 	self._pid = nil
-	-- Clear started_at AFTER the runtime computation so backoff reset works.
+	-- _after_death() consumes _started_at for backoff reset, then clears it.
 	self:_after_death()
-	-- Cosmetic: prior_pid retained only in event payload.
-	_ = prior_pid
 end
 
 function enter_state(self, new)
@@ -434,7 +443,7 @@ function Entry:start()
 
 	-- replace=true: kill any existing managed PID before re-gating.
 	if self.spec.replace and self._pid then
-		local spawn_mod = require("fishlive.autostart.spawn")
+		local spawn_mod = self._deps.spawn or require("fishlive.autostart.spawn")
 		spawn_mod.send_signal(self._pid, "TERM", self._deps.spawn_deps)
 		self._pid = nil
 	end
@@ -460,7 +469,7 @@ function Entry:stop()
 	disconnect_gates(self)
 	bump_generation(self)
 	if self._pid then
-		local spawn_mod = require("fishlive.autostart.spawn")
+		local spawn_mod = self._deps.spawn or require("fishlive.autostart.spawn")
 		spawn_mod.send_signal(self._pid, "TERM", self._deps.spawn_deps)
 	end
 	self._waiting_for = nil
@@ -469,14 +478,15 @@ function Entry:stop()
 	emit_event(self, { state = "pending", attempt = self._attempts, reason = "stopped" })
 end
 
---- Manually restart this entry from a terminal state.
+--- Manually restart this entry from a terminal or stopped state.
 -- Resets attempts and re-enters the gated state. Valid from `failed`,
--- `died`, or `done` (re-running a oneshot launcher is a legitimate
--- use case — e.g. manually re-trigger synology-drive after a logout).
--- For other states this is a no-op (use stop()+start() if you really
--- want to restart a running entry).
+-- `died`, `done`, or `pending` (the state stop() leaves us in). For
+-- in-flight states (gated/starting/running/restart_pending) this is a
+-- no-op — use stop() first if you really want to restart a running
+-- entry.
 function Entry:restart()
-	if self._state ~= "failed" and self._state ~= "died" and self._state ~= "done" then
+	local s = self._state
+	if s ~= "failed" and s ~= "died" and s ~= "done" and s ~= "pending" then
 		return false
 	end
 	self._attempts = 0
@@ -488,17 +498,25 @@ function Entry:restart()
 end
 
 --- Send SIGTERM with optional follow-up SIGKILL after a grace period.
--- Used during compositor shutdown. The grace timer is scheduled through
--- the injected timer so tests run synchronously.
+-- Used during compositor shutdown. SIGTERM is sent synchronously because
+-- this often runs during awesome's "exit" signal where the Lua VM is
+-- about to be destroyed before any easy_async kill could ever leave the
+-- main loop queue. The follow-up SIGKILL only fires if the entry STILL
+-- owns the same PID (no exit callback in between) — protects against
+-- killing a recycled PID after the kernel reuses the slot.
 function Entry:shutdown(grace_seconds)
 	if not self._pid then return end
-	local spawn_mod = require("fishlive.autostart.spawn")
+	local spawn_mod = self._deps.spawn or require("fishlive.autostart.spawn")
 	local pid = self._pid
-	spawn_mod.send_signal(pid, "TERM", self._deps.spawn_deps)
+	spawn_mod.send_signal_sync(pid, "TERM")
 	if grace_seconds and grace_seconds > 0 then
 		self._deps.timer.start_new(grace_seconds, function()
-			if spawn_mod.is_alive(pid) then
-				spawn_mod.send_signal(pid, "KILL", self._deps.spawn_deps)
+			-- Ownership check: only KILL if our entry still claims this
+			-- exact PID. _on_exit clears _pid; a recycled PID would land
+			-- under a different number anyway, but this also prevents us
+			-- from racing a child that exited cleanly during the grace.
+			if self._pid == pid and spawn_mod.is_alive(pid) then
+				spawn_mod.send_signal_sync(pid, "KILL")
 			end
 			return false
 		end)
