@@ -401,6 +401,55 @@ describe("autostart.entry", function()
 		assert.are.equal("running", e:state())
 		assert.are.equal(1, e._attempts)  -- restart resets to 0, then start_starting bumps to 1
 	end)
+
+	it("restart() from pending re-engages after stop()", function()
+		broker.emit_signal("ready::somewm", true)
+		local e = make_entry{ name = "stp", cmd = { "x" }, mode = "respawn", delay = 0 }
+		e:start()
+		assert.are.equal("running", e:state())
+		e:stop()
+		assert.are.equal("pending", e:state())
+		assert.is_true(e:restart())
+		assert.are.equal("running", e:state())
+	end)
+
+	it("restart() rejects in-flight states", function()
+		broker.emit_signal("ready::somewm", true)
+		local e = make_entry{ name = "ig", cmd = { "x" }, mode = "respawn", delay = 0 }
+		e:start()
+		assert.are.equal("running", e:state())
+		assert.is_false(e:restart())  -- no-op while running
+	end)
+
+	it("backoff after attempt-counter reset uses base, not half-base", function()
+		-- Regression: _after_death used to compute backoff_seconds(_, 0)
+		-- which yields max(base,1) * 2^-1 = base/2. After clamp to ≥1
+		-- the post-reset path waits the configured base delay instead.
+		broker.emit_signal("ready::somewm", true)
+		broker._now = 0
+		local e = make_entry{ name = "bb", cmd = { "x" }, mode = "respawn", retries = -1, delay = 4 }
+		e:start()
+		timer.fire_all()  -- consume delay timer
+		assert.are.equal("running", e:state())
+		broker._now = 70  -- > BACKOFF_RESET_SECONDS
+		spawn._last_exit("exit", 0)
+		assert.are.equal(0, e._attempts)  -- reset happened
+		assert.are.equal("restart_pending", e:state())
+		local h = timer._pending[1]
+		assert.are.equal(4, h._delay)  -- base delay, NOT base/2
+	end)
+
+	it("_started_at is cleared after death so spawn-fail does not see stale runtime", function()
+		broker.emit_signal("ready::somewm", true)
+		broker._now = 0
+		local e = make_entry{ name = "sf", cmd = { "x" }, mode = "respawn", retries = -1, delay = 0 }
+		e:start()
+		assert.are.equal("running", e:state())
+		assert.is_truthy(e._started_at)
+		broker._now = 5
+		spawn._last_exit("exit", 1)
+		assert.is_nil(e._started_at)  -- consumed by _after_death
+	end)
 end)
 
 ---------------------------------------------------------------------------
