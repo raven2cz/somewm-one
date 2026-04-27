@@ -157,21 +157,34 @@ local function on_bus_acquired(connection)
 end
 
 local function ensure_bus()
-	if state.bus_connection then return end
+	if state.bus_connection and not state.bus_connection:is_closed() then return end
 	if state._bus_get_inflight then return end
 	state._bus_get_inflight = true
 
 	local Gio = state.deps.Gio or require("lgi").Gio
-	-- Synchronous form is simpler and matches what awful.statusnotifierwatcher
-	-- and awful.systray already do at module load time. Async would be nicer
-	-- but `bus_get` requires a callback wired into the GLib main loop and
-	-- gains us nothing here -- this runs once at autostart init.
-	local conn, err = Gio.bus_get_sync(Gio.BusType.SESSION, nil)
+	-- After hot-reload GLib's singleton cache may return a closed
+	-- connection: g_bus_get_sync doesn't check is_closed before
+	-- returning the cached object. Mirror the workaround used by
+	-- awful.systray.init() / awful.statusnotifierwatcher: detect the
+	-- closed state and bypass the cache with new_for_address_sync.
+	local ok, conn = pcall(function()
+		local b = Gio.bus_get_sync(Gio.BusType.SESSION, nil)
+		if b and b:is_closed() then
+			local addr = Gio.dbus_address_get_for_bus_sync(
+				Gio.BusType.SESSION, nil)
+			b = Gio.DBusConnection.new_for_address_sync(
+				addr,
+				Gio.DBusConnectionFlags.AUTHENTICATION_CLIENT
+					+ Gio.DBusConnectionFlags.MESSAGE_BUS_CONNECTION,
+				nil, nil)
+		end
+		return b
+	end)
 	state._bus_get_inflight = false
-	if not conn then
+	if not ok or not conn then
 		io.stderr:write(string.format(
 			"[autostart.providers] failed to acquire session bus: %s\n",
-			tostring(err)))
+			tostring(conn)))
 		return
 	end
 	on_bus_acquired(conn)

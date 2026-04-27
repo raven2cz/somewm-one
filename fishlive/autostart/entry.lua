@@ -286,7 +286,13 @@ local function fire_gate_check(self)
 		return
 	end
 	-- All gates green: schedule delay (if any), then transition to starting.
+	-- IMPORTANT: bump the generation so the still-armed gate-timeout timer
+	-- from start_gated() is dropped. Without this, a gate that fires near
+	-- the timeout boundary races: the timeout marks state=failed, then the
+	-- delay timer's callback (same generation) goes ahead and spawns
+	-- anyway, leaving a `failed` entry with a live PID.
 	disconnect_gates(self)
+	bump_generation(self)
 	self._waiting_for = nil
 	if self.spec.delay > 0 then
 		schedule(self, self.spec.delay, function() start_starting(self) end)
@@ -497,30 +503,49 @@ function Entry:restart()
 	return true
 end
 
---- Send SIGTERM with optional follow-up SIGKILL after a grace period.
--- Used during compositor shutdown. SIGTERM is sent synchronously because
--- this often runs during awesome's "exit" signal where the Lua VM is
--- about to be destroyed before any easy_async kill could ever leave the
--- main loop queue. The follow-up SIGKILL only fires if the entry STILL
--- owns the same PID (no exit callback in between) — protects against
--- killing a recycled PID after the kernel reuses the slot.
-function Entry:shutdown(grace_seconds)
-	if not self._pid then return end
+--- Send SIGTERM synchronously and return the PID we signalled.
+-- Used during compositor shutdown. SIGTERM is synchronous because the
+-- caller (init.lua._on_exit, hooked to awesome's "exit" signal) runs
+-- as the Lua VM is about to be torn down — easy_async would never
+-- leave the GLib main loop queue. Returns nil if the entry has no
+-- live PID.
+function Entry:shutdown_term()
+	if not self._pid then return nil end
 	local spawn_mod = self._deps.spawn or require("fishlive.autostart.spawn")
 	local pid = self._pid
 	spawn_mod.send_signal_sync(pid, "TERM")
-	if grace_seconds and grace_seconds > 0 then
-		self._deps.timer.start_new(grace_seconds, function()
-			-- Ownership check: only KILL if our entry still claims this
-			-- exact PID. _on_exit clears _pid; a recycled PID would land
-			-- under a different number anyway, but this also prevents us
-			-- from racing a child that exited cleanly during the grace.
-			if self._pid == pid and spawn_mod.is_alive(pid) then
-				spawn_mod.send_signal_sync(pid, "KILL")
-			end
-			return false
-		end)
+	return pid
+end
+
+--- SIGKILL the entry if it still owns the given PID.
+-- Ownership check is critical because the kernel may have recycled the
+-- PID slot during the shutdown grace period; killing a recycled PID
+-- would terminate an unrelated process. _on_exit clears _pid, so a
+-- mismatch means we already saw the exit callback fire.
+function Entry:shutdown_kill(pid)
+	if not pid or self._pid ~= pid then return end
+	local spawn_mod = self._deps.spawn or require("fishlive.autostart.spawn")
+	if spawn_mod.is_alive(pid) then
+		spawn_mod.send_signal_sync(pid, "KILL")
 	end
+end
+
+--- Self-contained synchronous shutdown for unit-test paths.
+-- Production uses the batched two-phase init.lua._on_exit flow because
+-- a grace period per entry would multiply shutdown latency. Tests
+-- inject a fake spawn so the os.execute("sleep") loop is short.
+function Entry:shutdown(grace_seconds)
+	local pid = self:shutdown_term()
+	if not pid then return end
+	if not grace_seconds or grace_seconds <= 0 then return end
+	local spawn_mod = self._deps.spawn or require("fishlive.autostart.spawn")
+	local now_fn = self._deps.now or default_now
+	local deadline = now_fn() + grace_seconds
+	while now_fn() < deadline do
+		if not spawn_mod.is_alive(pid) then return end
+		os.execute("sleep 0.1")
+	end
+	self:shutdown_kill(pid)
 end
 
 -- Test hooks

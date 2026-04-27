@@ -450,6 +450,28 @@ describe("autostart.entry", function()
 		spawn._last_exit("exit", 1)
 		assert.is_nil(e._started_at)  -- consumed by _after_death
 	end)
+
+	it("gate timeout cancelled when gates satisfy with pending delay", function()
+		-- Regression: gate fires near timeout boundary, fire_gate_check
+		-- schedules the delay timer with the same generation as the
+		-- still-armed timeout. Without bump_generation in fire_gate_check
+		-- the timeout fires (state→failed) and the delay callback STILL
+		-- spawns a process — `failed` entry with a live PID.
+		local e = make_entry{
+			name = "race", cmd = { "x" }, mode = "oneshot",
+			when = { "ready::somewm" }, delay = 5, timeout = 3,
+		}
+		e:start()
+		assert.are.equal("gated", e:state())
+		-- Gate satisfies AFTER start (so schedule path takes the delay).
+		broker.emit_signal("ready::somewm", true)
+		assert.are.equal("gated", e:state())  -- still gated, delay pending
+		-- Old generation timers (the timeout) are now invalidated. Only
+		-- the new delay timer remains pending.
+		local pending = 0
+		for _ in pairs(e._active_timers) do pending = pending + 1 end
+		assert.are.equal(1, pending)
+	end)
 end)
 
 ---------------------------------------------------------------------------

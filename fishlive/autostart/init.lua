@@ -198,12 +198,48 @@ end
 -- Internal hooks
 ---------------------------------------------------------------------------
 
+-- Batched shutdown grace, in seconds. Runs once for the whole respawn
+-- set instead of once per entry, so a fork with N respawn entries does
+-- not multiply the compositor exit latency by N.
+local SHUTDOWN_GRACE_SECONDS = 2
+
 function autostart._on_exit()
+	-- Phase 1: synchronous SIGTERM to every respawn entry. Collect the
+	-- PIDs we still need to verify so we can poll them in a single grace
+	-- loop instead of blocking serially per entry.
+	local pending = {}
 	for _, e in pairs(state.entries) do
 		if e.spec.mode == "respawn" then
-			pcall(e.shutdown, e, 2)
+			local ok, pid = pcall(e.shutdown_term, e)
+			if ok and pid then
+				pending[#pending + 1] = { entry = e, pid = pid }
+			end
 		end
 	end
+
+	-- Phase 2: single shared grace poll. Bail out early if everyone
+	-- exited cleanly under SIGTERM.
+	if #pending > 0 then
+		local spawn_mod = state.deps.spawn or require("fishlive.autostart.spawn")
+		local deadline = os.time() + SHUTDOWN_GRACE_SECONDS
+		while os.time() < deadline do
+			local alive = false
+			for _, p in ipairs(pending) do
+				if spawn_mod.is_alive(p.pid) then alive = true; break end
+			end
+			if not alive then break end
+			os.execute("sleep 0.1")
+		end
+
+		-- Phase 3: SIGKILL stragglers. shutdown_kill performs the
+		-- ownership check (entry still owns the same PID) so a child
+		-- that exited cleanly during grace cannot be confused with a
+		-- recycled PID.
+		for _, p in ipairs(pending) do
+			pcall(p.entry.shutdown_kill, p.entry, p.pid)
+		end
+	end
+
 	pcall(providers_mod.shutdown)
 end
 
