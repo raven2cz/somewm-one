@@ -202,6 +202,27 @@ autostart.add{
     mode = "respawn",
 }
 
+autostart.add{
+    name = "blueman-applet",
+    cmd  = { "blueman-applet" },
+    when = { "ready::tray" },
+    mode = "respawn",
+}
+
+autostart.add{
+    name = "synology-drive",
+    cmd  = { "synology-drive" },
+    when = { "ready::xwayland" },
+    mode = "respawn",
+}
+
+-- somewm initializes XWayland in lazy mode (xwayland.c:286,
+-- wlr_xwayland_create with lazy=1) -- the server only spins up after the
+-- first X11 client connects. Without an early kick the ready::xwayland
+-- gate would deadlock for the synology entry. xprop is small, ubiquitous,
+-- and exits immediately, so it is the cheapest way to wake XWayland.
+awful.spawn.easy_async({ "xprop", "-root", "_NET_SUPPORTED" }, function() end)
+
 autostart.start_all()
 
 awful.spawn.easy_async(os.getenv("HOME") .. "/git/github/somewm/plans/project/somewm-shell/theme-export.sh", function()
