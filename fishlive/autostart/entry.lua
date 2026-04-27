@@ -279,6 +279,11 @@ local function start_starting(self)
 	enter_state(self, "running")
 end
 
+-- Forward decl: start_gated needs to call back into us via the cached-replay
+-- path during connect_signal, but _after_death also routes back through it
+-- after a respawn so the gate is re-evaluated post-crash.
+local start_gated
+
 local function fire_gate_check(self)
 	if self._state ~= "gated" then return end
 	if not gates_satisfied(self) then
@@ -295,13 +300,26 @@ local function fire_gate_check(self)
 	bump_generation(self)
 	self._waiting_for = nil
 	if self.spec.delay > 0 then
-		schedule(self, self.spec.delay, function() start_starting(self) end)
+		-- Re-validate gates at delay expiry: a D-Bus name watcher can
+		-- vanish (broker emits gate=false) inside the delay window. Without
+		-- this re-check the entry would spawn against a now-bad gate, which
+		-- usually crashes the process and bounces it through the respawn
+		-- loop. Re-engaging start_gated when the gate flipped false sits
+		-- the entry back in `gated` so it picks up cleanly when the gate
+		-- comes back.
+		schedule(self, self.spec.delay, function()
+			if gates_satisfied(self) then
+				start_starting(self)
+			else
+				start_gated(self)
+			end
+		end)
 	else
 		start_starting(self)
 	end
 end
 
-local function start_gated(self)
+start_gated = function(self)
 	bump_generation(self)
 	self._state = "gated"
 	recompute_waiting(self)
@@ -414,7 +432,19 @@ function Entry:_after_death()
 		backoff = delay,
 	})
 	bump_generation(self)
-	schedule(self, delay, function() start_starting(self) end)
+	-- Re-evaluate gates at the end of backoff: a respawn whose dependency
+	-- (e.g. ready::tray for blueman-applet) has vanished while we were
+	-- backing off would otherwise spawn-crash-respawn at a 60s cap forever.
+	-- Re-engaging start_gated puts the entry back into `gated` so it sits
+	-- quietly until the gate returns, then spawns once. If the gate is
+	-- still satisfied at backoff-end, spawn directly with no extra delay.
+	schedule(self, delay, function()
+		if gates_satisfied(self) then
+			start_starting(self)
+		else
+			start_gated(self)
+		end
+	end)
 end
 
 function Entry:_on_exit(reason, code)

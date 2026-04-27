@@ -473,6 +473,74 @@ describe("autostart.entry", function()
 		assert.are.equal(1, pending)
 	end)
 
+	-- Fire the next live (non-cancelled) timer in the queue.
+	-- timer.fire_all() also drains timers scheduled BY the fired callback,
+	-- which masks intent in tests that want to step exactly one tick.
+	local function fire_next_live(t)
+		while #t._pending > 0 do
+			local h = t._pending[1]
+			if h._cancelled then
+				table.remove(t._pending, 1)
+			else
+				return t.fire_one()
+			end
+		end
+	end
+
+	it("delay-window gate flap re-engages gating instead of spawning", function()
+		-- Regression: gate goes true → fire_gate_check schedules delay →
+		-- gate goes false during the delay window → delay timer fires.
+		-- Without re-validation, start_starting would spawn against a bad
+		-- gate. Fix re-checks gates_satisfied; if false, sits back in
+		-- gated until the gate returns.
+		broker.emit_signal("ready::tray", true)
+		local e = make_entry{
+			name = "delayflap", cmd = { "x" }, mode = "respawn",
+			when = { "ready::tray" }, delay = 5, retries = -1,
+		}
+		e:start()
+		assert.are.equal("gated", e:state())
+		broker.emit_signal("ready::tray", false)
+		fire_next_live(timer)  -- delay expires; gate is now false
+		assert.are.equal("gated", e:state())
+		assert.are.equal(0, #spawn._calls)
+		-- When the gate returns, the new connect_signal late-join replay
+		-- inside start_gated() fires fire_gate_check synchronously and
+		-- schedules the delay timer again.
+		broker.emit_signal("ready::tray", true)
+		fire_next_live(timer)
+		assert.are.equal("running", e:state())
+	end)
+
+	it("respawn after death re-checks gates instead of blind restart", function()
+		-- Regression: respawn entry whose dependency vanishes between
+		-- death and backoff completion would spawn-crash forever (capped
+		-- at 60s backoff). Now _after_death re-validates the gate at
+		-- backoff-end: if the gate is gone the entry parks in gated;
+		-- when it returns, the entry transitions through.
+		broker.emit_signal("ready::tray", true)
+		local e = make_entry{
+			name = "blueman-like", cmd = { "x" }, mode = "respawn",
+			when = { "ready::tray" }, delay = 0, retries = -1,
+		}
+		e:start()
+		assert.are.equal("running", e:state())
+		assert.are.equal(1, #spawn._calls)
+		-- Tray vanishes, then process dies (typical real-world ordering).
+		broker.emit_signal("ready::tray", false)
+		spawn._last_exit("exit", 1)
+		assert.are.equal("restart_pending", e:state())
+		-- Backoff fires; gate is false → sit in gated, no new spawn.
+		fire_next_live(timer)
+		assert.are.equal("gated", e:state())
+		assert.are.equal(1, #spawn._calls)
+		-- Tray comes back; entry transitions through cleanly (delay=0
+		-- so the cached-replay path goes straight to start_starting).
+		broker.emit_signal("ready::tray", true)
+		assert.are.equal("running", e:state())
+		assert.are.equal(2, #spawn._calls)
+	end)
+
 	it("cached-gate replay during connect_signal cancels the timeout", function()
 		-- Regression: gate is ALREADY cached at start() time, so
 		-- broker.connect_signal fires the callback synchronously inside
