@@ -213,7 +213,12 @@ autostart.add{
     name = "synology-drive",
     cmd  = { "synology-drive" },
     when = { "ready::xwayland" },
-    mode = "respawn",
+    -- `synology-drive` is a launcher script: it forks the real daemons
+    -- (cloud-drive-ui / -connect / -daemon) and exits 0 within ~5 ms.
+    -- mode="oneshot" treats that exit as success, so the entry parks in
+    -- `done` instead of crash-looping the launcher every backoff window
+    -- while the real daemons happily continue running.
+    mode = "oneshot",
 }
 
 -- somewm initializes XWayland in lazy mode (xwayland.c:286,
