@@ -103,8 +103,6 @@ function M.setup(args)
 			{description = "quit somewm", group = "awesome"}),
 		awful.key({ modkey, "Shift" }, "Escape", function() awesome.lock() end,
 			{description = "lock screen", group = "awesome"}),
-		awful.key({ modkey, "Shift" }, "l", function() awesome.lock() end,
-			{description = "lock screen", group = "awesome"}),
 		awful.key({ modkey, "Shift" }, "x",
 			function()
 				awful.prompt.run {
