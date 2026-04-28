@@ -12,7 +12,7 @@ TARGET="$HOME/.config/somewm"
 
 if [[ "${1:-}" == "--dry-run" ]]; then
     echo "Dry run — would sync:"
-    rsync -av --delete --exclude 'deploy.sh' --exclude 'themes/*/user-wallpapers/' --exclude 'screen_scopes.json' --exclude '.active_theme' --exclude 'rc.lua.bak' --dry-run "$SCRIPT_DIR/" "$TARGET/"
+    rsync -av --delete --exclude 'deploy.sh' --exclude 'themes/*/user-wallpapers/' --exclude 'screen_scopes.json' --exclude '.active_theme' --exclude '.default_portrait' --exclude 'rc.lua.bak' --dry-run "$SCRIPT_DIR/" "$TARGET/"
     exit 0
 fi
 
@@ -29,7 +29,7 @@ if [[ -x "$SNAPSHOT_SCRIPT" ]]; then
 fi
 
 # Sync (exclude deploy.sh itself)
-rsync -av --delete --exclude 'deploy.sh' --exclude 'themes/*/user-wallpapers/' --exclude 'screen_scopes.json' --exclude '.active_theme' --exclude 'rc.lua.bak' "$SCRIPT_DIR/" "$TARGET/"
+rsync -av --delete --exclude 'deploy.sh' --exclude 'themes/*/user-wallpapers/' --exclude 'screen_scopes.json' --exclude '.active_theme' --exclude '.default_portrait' --exclude 'rc.lua.bak' "$SCRIPT_DIR/" "$TARGET/"
 
 echo ""
 echo "Deployed somewm-one to $TARGET"
