@@ -223,6 +223,30 @@ autostart.add{
     mode = "respawn",
 }
 
+-- KDE Frameworks 6 services required by KIO-based apps (Dolphin, Kate,
+-- Okular, ...).  Without these, KIO slaves can't reach the activity
+-- manager and on-demand kded plugins (solid storage, kpasswdserver,
+-- kio_bookmarks) stay unloaded.  Migrated from the legacy
+-- `~/.config/autostart/*.desktop` entries that used
+-- `OnlyShowIn=Awesome|KDE` and so didn't fire under
+-- XDG_CURRENT_DESKTOP=somewm.
+--
+-- kglobalacceld is intentionally omitted: standalone it exits silently
+-- with code 0 in our environment, and under systemd it crashes inside
+-- QGuiApplication.  KDE-specific global shortcuts are not used here —
+-- somewm owns all global keybindings via awful.key.
+autostart.add{
+    name = "kded6",
+    cmd  = { "/usr/bin/kded6" },
+    mode = "respawn",
+}
+
+autostart.add{
+    name = "kactivitymanagerd",
+    cmd  = { "/usr/lib/kactivitymanagerd" },
+    mode = "respawn",
+}
+
 autostart.add{
     name = "blueman-applet",
     cmd  = { "blueman-applet" },
