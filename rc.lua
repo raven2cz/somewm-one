@@ -208,6 +208,15 @@ end)
 -- {{{ Autostart
 local autostart = require("fishlive.autostart")
 
+-- Polkit GUI auth agent: without it, libsecret/polkit prompts hang
+-- on the D-Bus default timeout (~25s) before any UI shows up.
+-- polkit-gnome is GTK3 standalone, no GNOME session dependencies.
+autostart.add{
+    name = "polkit-gnome-authentication-agent-1",
+    cmd  = { "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1" },
+    mode = "respawn",
+}
+
 autostart.add{
     name = "nm-applet",
     cmd  = { "nm-applet" },
