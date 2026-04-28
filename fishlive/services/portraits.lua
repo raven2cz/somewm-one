@@ -237,6 +237,21 @@ function portraits.set_default(name)
 	f:write(name .. "\n")
 	f:close()
 
+	-- Mirror the choice to ~/.portrait so terminal greetings pick up
+	-- the same default.  ~/.local/bin/kitty-icat-random (invoked by
+	-- the fish_greeting branch for kitty/ghostty/wezterm) reads this
+	-- file directly and is unaware of somewm's own state file.
+	-- Best-effort: a write failure here is non-fatal because somewm's
+	-- canonical state has already been persisted.
+	local home = os.getenv("HOME")
+	if home and home ~= "" then
+		local legacy = io.open(home .. "/.portrait", "w")
+		if legacy then
+			legacy:write(name .. "\n")
+			legacy:close()
+		end
+	end
+
 	portraits.reset_cache()
 	broker.emit_signal("data::portrait_default", { name = name })
 	return true
