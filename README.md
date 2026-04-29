@@ -8,8 +8,12 @@
 [![AwesomeWM API](https://img.shields.io/badge/AwesomeWM_API-v4-blue.svg)](https://awesomewm.org/)
 [![Wayland](https://img.shields.io/badge/Wayland-wlroots_0.19-purple.svg)](https://gitlab.freedesktop.org/wlroots/wlroots)
 
-<!-- screenshot placeholder -->
-<p align="center"><em>screenshot: wibar + dashboard + dock · to be added</em></p>
+<p align="center">
+  <a href="https://youtu.be/QCiAMZFddSc">
+    <img src="https://img.youtube.com/vi/QCiAMZFddSc/hqdefault.jpg" alt="somewm trailer — click to watch on YouTube" width="640">
+  </a>
+</p>
+<p align="center"><em>► <a href="https://youtu.be/QCiAMZFddSc">Watch the somewm trailer on YouTube</a> · screenshots coming soon</em></p>
 
 ## What is this?
 
