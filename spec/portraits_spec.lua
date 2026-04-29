@@ -2,7 +2,7 @@
 --- Tests for fishlive.services.portraits
 ---------------------------------------------------------------------------
 
-package.path = "./plans/project/somewm-one/?.lua;" .. package.path
+package.path = "./?.lua;" .. package.path
 
 -- Shared test state
 local test_root = "/tmp/somewm-test-portraits/"

@@ -229,22 +229,22 @@ Run `theme-export.sh` whenever `theme.lua` changes. (The shell's
 
 ```bash
 # Edit source in the repo
-vim plans/project/somewm-one/rc.lua
+vim rc.lua
 
 # Sync to ~/.config/somewm (preserves user-wallpapers/)
-plans/project/somewm-one/deploy.sh
+./deploy.sh
 
 # Reload the live compositor (no window loss)
 somewm-client reload
 ```
 
-**Rule:** always edit in `plans/project/somewm-one/`. Never hand-edit
+**Rule:** always edit in this repo. Never hand-edit
 `~/.config/somewm/rc.lua` directly — `deploy.sh` overwrites it.
 
 Dry-run to preview the sync:
 
 ```bash
-plans/project/somewm-one/deploy.sh --dry-run
+./deploy.sh --dry-run
 ```
 
 ### Tests
@@ -354,7 +354,7 @@ shutdown phases, provider bridge): [../../docs/fishlive-autostart.md](../../docs
 ## Directory structure
 
 ```
-plans/project/somewm-one/
+
 ├── rc.lua                  # 210-line entry point (orchestration only)
 ├── deploy.sh               # rsync → ~/.config/somewm
 ├── STYLE.md                # code conventions
@@ -423,7 +423,7 @@ plans/project/somewm-one/
 
 ```bash
 # Deploy
-plans/project/somewm-one/deploy.sh
+./deploy.sh
 
 # Reload (from a running somewm session)
 somewm-client reload
@@ -435,11 +435,11 @@ busted spec/
 somewm-client eval 'return #client.get()'
 somewm-client eval 'return client.focus and client.focus.name or "none"'
 
-# Check header lint
-plans/scripts/check-headers.sh
+# Check header lint (script lives in the somewm fork)
+bash "${SOMEWM_FORK_PATH:-$HOME/git/github/somewm}/plans/scripts/check-headers.sh"
 
 # Theme export (Lua → JSON for somewm-shell)
-bash ../somewm-shell/theme-export.sh
+bash "${SOMEWM_SHELL_PATH:-$HOME/git/github/somewm-shell}/theme-export.sh"
 ```
 
 ## Further reading

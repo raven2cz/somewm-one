@@ -5,7 +5,7 @@
 --
 -- somewm-one — customized rc.lua for the somewm Wayland compositor.
 -- Orchestration only: framework init, theme load, keybindings/menus/screen/rules
--- delegated to fishlive.config.*. See plans/project/somewm-one/ for the full tree.
+-- delegated to fishlive.config.*. See this repo for the full tree.
 --
 -- awesome_mode: api-level=4:screen=on
 
@@ -275,7 +275,14 @@ awful.spawn.easy_async({ "xprop", "-root", "_NET_SUPPORTED" }, function() end)
 
 autostart.start_all();                             ST.mark("rc:after:autostart_start")
 
-awful.spawn.easy_async(os.getenv("HOME") .. "/git/github/somewm/plans/project/somewm-shell/theme-export.sh", function()
+-- theme-export.sh lives in the sibling somewm-shell repo. SOMEWM_SHELL_PATH
+-- env var overrides the default location. If the script is absent, skip
+-- the export step and just (re)launch Quickshell — the shell ships a
+-- baseline theme.default.json so it boots without an exported theme.
+local shell_root = os.getenv("SOMEWM_SHELL_PATH")
+    or (os.getenv("HOME") .. "/git/github/somewm-shell")
+local theme_export = shell_root .. "/theme-export.sh"
+local function relaunch_qs()
     awful.spawn.easy_async_with_shell(
         "pkill -f 'qs -c somewm' 2>/dev/null; "
         .. "rm -rf /run/user/$(id -u)/quickshell/by-id/* "
@@ -285,7 +292,14 @@ awful.spawn.easy_async(os.getenv("HOME") .. "/git/github/somewm/plans/project/so
         .. "sleep 1",
         function() awful.spawn("qs -c somewm -n -d") end
     )
-end);                                              ST.mark("rc:spawn.async:theme-export+qs")
+end
+if gears.filesystem.file_executable(theme_export) then
+    -- argv-form (table, not string) avoids shell parsing — safe for
+    -- SOMEWM_SHELL_PATH containing spaces or shell metacharacters.
+    awful.spawn.easy_async({ theme_export }, relaunch_qs)
+else
+    relaunch_qs()
+end                                                ST.mark("rc:spawn.async:theme-export+qs")
 -- }}}
 
 -- {{{ Shell IPC (push state to QuickShell)

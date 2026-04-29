@@ -1,12 +1,12 @@
 ---------------------------------------------------------------------------
 --- Tests for fishlive.autostart (state machine + scheduler + log + backoff)
 ---
---- Run: busted --helper='plans/project/somewm-one/spec/preload.lua' \
----             --lpath='plans/project/somewm-one/?.lua;plans/project/somewm-one/?/init.lua' \
----             plans/project/somewm-one/spec/autostart_spec.lua
+--- Run: busted --helper='spec/preload.lua' \
+---             --lpath='?.lua;?/init.lua' \
+---             spec/autostart_spec.lua
 ---------------------------------------------------------------------------
 
-package.path = "./plans/project/somewm-one/?.lua;./plans/project/somewm-one/?/init.lua;" .. package.path
+package.path = "./?.lua;./?/init.lua;" .. package.path
 
 ---------------------------------------------------------------------------
 -- Mock helpers (recreated per test in before_each)

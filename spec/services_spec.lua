@@ -2,7 +2,7 @@
 --- Tests for service data parsers (pure Lua, no awesome runtime needed)
 ---------------------------------------------------------------------------
 
-package.path = "./plans/project/somewm-one/?.lua;" .. package.path
+package.path = "./?.lua;" .. package.path
 
 describe("service parsers", function()
 

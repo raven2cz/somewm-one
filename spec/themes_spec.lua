@@ -2,7 +2,7 @@
 --- Tests for fishlive.services.themes
 ---------------------------------------------------------------------------
 
-package.path = "./plans/project/somewm-one/?.lua;" .. package.path
+package.path = "./?.lua;" .. package.path
 
 -- Mock dependencies
 local mock_broker_signals = {}

@@ -2,7 +2,7 @@
 --- Tests for fishlive.service
 ---------------------------------------------------------------------------
 
-package.path = "./plans/project/somewm-one/?.lua;" .. package.path
+package.path = "./?.lua;" .. package.path
 
 -- Mock gears.timer
 local mock_timers = {}

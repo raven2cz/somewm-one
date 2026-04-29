@@ -2,7 +2,7 @@
 --- Tests for fishlive.factory
 ---------------------------------------------------------------------------
 
-package.path = "./plans/project/somewm-one/?.lua;" .. package.path
+package.path = "./?.lua;" .. package.path
 
 -- Mock beautiful
 package.preload["beautiful"] = function()

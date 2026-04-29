@@ -3,7 +3,7 @@
 # Usage: ./deploy.sh [--dry-run]
 #
 # This copies the somewm-one project from the repo to the active config.
-# Run after editing rc.lua or themes in plans/project/somewm-one/.
+# Run after editing rc.lua or themes in this repo.
 
 set -euo pipefail
 
@@ -22,8 +22,10 @@ if [[ -f "$TARGET/rc.lua" ]]; then
     cp "$TARGET/rc.lua" "$TARGET/rc.lua.bak"
 fi
 
-# Snapshot pre-deploy state for crash diagnosis
-SNAPSHOT_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../scripts" && pwd)/somewm-snapshot.sh"
+# Pre-deploy snapshot — optional, lives in the somewm fork checkout.
+# Override SOMEWM_FORK_PATH to point at a different fork location;
+# script is silently skipped if not present.
+SNAPSHOT_SCRIPT="${SOMEWM_FORK_PATH:-$HOME/git/github/somewm}/plans/scripts/somewm-snapshot.sh"
 if [[ -x "$SNAPSHOT_SCRIPT" ]]; then
     "$SNAPSHOT_SCRIPT" && echo "Pre-deploy snapshot saved" || true
 fi

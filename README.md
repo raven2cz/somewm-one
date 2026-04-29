@@ -94,12 +94,13 @@ somewm-one/
 
 ## Contributing
 
-1. Edit under `plans/project/somewm-one/` (or your fork).
+1. Edit in this repo (or your fork).
 2. Add a header (`STYLE.md`) and, for new services/components, a spec
    under `spec/`.
 3. Run the header lint and unit tests:
    ```bash
-   plans/scripts/check-headers.sh
+   # check-headers.sh lives in the somewm fork (raven2cz/somewm):
+   bash "${SOMEWM_FORK_PATH:-$HOME/git/github/somewm}/plans/scripts/check-headers.sh"
    busted spec/
    ```
 4. Commit with a conventional message (`feat:`, `fix:`, `refactor:`,

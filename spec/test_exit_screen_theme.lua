@@ -4,7 +4,7 @@
 --- Runs without busted (busted has broken deps on this system)
 ---------------------------------------------------------------------------
 
-package.path = "./plans/project/somewm-one/?.lua;./plans/project/somewm-one/?/init.lua;" .. package.path
+package.path = "./?.lua;./?/init.lua;" .. package.path
 
 -- Track test results
 local passed, failed = 0, 0

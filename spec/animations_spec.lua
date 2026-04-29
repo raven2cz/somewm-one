@@ -1,7 +1,7 @@
 -- Unit tests for rubato animation components
--- Run: busted --helper='plans/project/somewm-one/spec/preload.lua' \
---            --lpath='plans/project/somewm-one/?.lua;plans/project/somewm-one/?/init.lua' \
---            plans/project/somewm-one/spec/animations_spec.lua
+-- Run: busted --helper='spec/preload.lua' \
+--            --lpath='?.lua;?/init.lua' \
+--            spec/animations_spec.lua
 
 -- Stub lgi before anything loads rubato
 local monotonic_time = 0

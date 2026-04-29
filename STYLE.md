@@ -113,8 +113,9 @@ project: [`../somewm-shell/IPC.md`](../somewm-shell/IPC.md).
 
 ## Verification
 
-```
-plans/scripts/check-headers.sh
+```bash
+# check-headers.sh lives in the somewm fork (raven2cz/somewm):
+bash "${SOMEWM_FORK_PATH:-$HOME/git/github/somewm}/plans/scripts/check-headers.sh"
 ```
 
 Minimum-viable grep lint for header presence across Lua and QML. Re-run
