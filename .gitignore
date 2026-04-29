@@ -1,0 +1,19 @@
+# Editor / IDE
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Lua / busted
+*.luac
+luacov.*.out
+
+# Local artifacts
+*.bak
+.deploy.log
+.default_portrait
