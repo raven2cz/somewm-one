@@ -10,9 +10,25 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="$HOME/.config/somewm"
 
+# Repo-management files that don't belong in the deployed config.
+# Order matters for readability only — rsync collects all --exclude flags.
+EXCLUDES=(
+    --exclude 'deploy.sh'
+    --exclude '.git'
+    --exclude '.gitignore'
+    --exclude '.github'
+    --exclude 'LICENSE'
+    --exclude 'CLAUDE.md'
+    --exclude 'themes/*/user-wallpapers/'
+    --exclude 'screen_scopes.json'
+    --exclude '.active_theme'
+    --exclude '.default_portrait'
+    --exclude 'rc.lua.bak'
+)
+
 if [[ "${1:-}" == "--dry-run" ]]; then
     echo "Dry run — would sync:"
-    rsync -av --delete --exclude 'deploy.sh' --exclude 'themes/*/user-wallpapers/' --exclude 'screen_scopes.json' --exclude '.active_theme' --exclude '.default_portrait' --exclude 'rc.lua.bak' --dry-run "$SCRIPT_DIR/" "$TARGET/"
+    rsync -av --delete "${EXCLUDES[@]}" --dry-run "$SCRIPT_DIR/" "$TARGET/"
     exit 0
 fi
 
@@ -30,8 +46,8 @@ if [[ -x "$SNAPSHOT_SCRIPT" ]]; then
     "$SNAPSHOT_SCRIPT" && echo "Pre-deploy snapshot saved" || true
 fi
 
-# Sync (exclude deploy.sh itself)
-rsync -av --delete --exclude 'deploy.sh' --exclude 'themes/*/user-wallpapers/' --exclude 'screen_scopes.json' --exclude '.active_theme' --exclude '.default_portrait' --exclude 'rc.lua.bak' "$SCRIPT_DIR/" "$TARGET/"
+# Sync (excludes are shared with the dry-run path above)
+rsync -av --delete "${EXCLUDES[@]}" "$SCRIPT_DIR/" "$TARGET/"
 
 echo ""
 echo "Deployed somewm-one to $TARGET"
