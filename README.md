@@ -1,7 +1,7 @@
 # somewm-one
 
 > Reference configuration and widget framework for
-> [**somewm**](https://github.com/raven2cz/somewm) — *AwesomeWM on Wayland,
+> [**somewm**](https://github.com/trip-zip/somewm) — *AwesomeWM on Wayland,
 > at last.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -18,7 +18,7 @@
 ## What is this?
 
 `somewm-one` is an opinionated starting point for anyone using the
-[somewm](https://github.com/raven2cz/somewm) compositor. It keeps the full
+[somewm](https://github.com/trip-zip/somewm) compositor. It keeps the full
 AwesomeWM Lua API you already know (`client`, `tag`, `screen`, signals,
 `rc.lua`, `awful.*`, `beautiful`, `naughty`) and adds a small framework
 called **fishlive** for building themed, reactive widgets without
@@ -39,7 +39,7 @@ fire the same way, `awful.*` is the same API, themes are `theme.lua`.
 
 ## Requirements
 
-- [`somewm`](https://github.com/raven2cz/somewm) compositor ≥ current
+- [`somewm`](https://github.com/trip-zip/somewm) compositor ≥ current
   `main`
 - Lua 5.1 or LuaJIT (same runtime AwesomeWM uses)
 - Standard AwesomeWM deps (via pacman on Arch): `luarocks`, `lua-lgi`,
@@ -103,7 +103,7 @@ somewm-one/
    under `spec/`.
 3. Run the header lint and unit tests:
    ```bash
-   # check-headers.sh lives in the somewm fork (raven2cz/somewm):
+   # check-headers.sh lives in the v2.0 work-in-progress fork (raven2cz/somewm):
    bash "${SOMEWM_FORK_PATH:-$HOME/git/github/somewm}/plans/scripts/check-headers.sh"
    busted spec/
    ```
@@ -115,9 +115,15 @@ somewm-one/
 - **[AwesomeWM](https://github.com/awesomeWM/awesome)** — the original
   Lua API, object model and widget system this project tracks. Website:
   [awesomewm.org](https://awesomewm.org/).
-- **[somewm (upstream)](https://github.com/trip-zip/somewm)** — the
-  wlroots port that made AwesomeWM-on-Wayland real. Our fork:
-  [raven2cz/somewm](https://github.com/raven2cz/somewm).
+- **[somewm](https://github.com/trip-zip/somewm)** by
+  [@trip-zip](https://github.com/trip-zip) — the wlroots port that made
+  AwesomeWM-on-Wayland real. This is the canonical upstream project
+  `somewm-one` is built for.
+  *Note: I also maintain a [development fork at raven2cz/somewm](https://github.com/raven2cz/somewm)
+  where active work toward somewm 2.0 happens (focus/input fixes, NVIDIA
+  workarounds, SceneFX integration, animation framework). It tracks
+  upstream and contributes back via PRs; use it only if you specifically
+  need one of the in-flight changes.*
 - **[layout-machi](https://github.com/xinhaoyuan/layout-machi)** by
   [@xinhaoyuan](https://github.com/xinhaoyuan) — the interactive tiling
   layout engine vendored under `layout-machi/`.
