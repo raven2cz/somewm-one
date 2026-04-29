@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://youtu.be/QCiAMZFddSc">
-    <img src="https://img.youtube.com/vi/QCiAMZFddSc/hqdefault.jpg" alt="somewm trailer — click to watch on YouTube" width="640">
+    <img src="assets/somewm-trailer.png" alt="somewm trailer, click to watch on YouTube" width="800">
   </a>
 </p>
 <p align="center"><em>► <a href="https://youtu.be/QCiAMZFddSc">Watch the somewm trailer on YouTube</a> · screenshots coming soon</em></p>
