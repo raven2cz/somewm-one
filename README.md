@@ -1,7 +1,7 @@
 # somewm-one
 
 > Reference configuration and widget framework for
-> [**somewm**](https://github.com/trip-zip/somewm) — *AwesomeWM on Wayland,
+> [**somewm**](https://github.com/trip-zip/somewm) - *AwesomeWM on Wayland,
 > at last.*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -24,13 +24,13 @@ AwesomeWM Lua API you already know (`client`, `tag`, `screen`, signals,
 called **fishlive** for building themed, reactive widgets without
 per-widget polling loops.
 
-- **A 210-line `rc.lua`** — pure orchestration, no 1500-line config
+- **A 210-line `rc.lua`**: pure orchestration, no 1500-line config
   spaghetti. All logic lives under `fishlive.config.*` with an explicit
   `.setup()` convention and a deterministic load order.
-- **The fishlive framework** — a lightweight pub/sub broker, reusable services
+- **The fishlive framework**: a lightweight pub/sub broker, reusable services
   (producers), and reactive components (widgets). For example, a single `/proc/stat`
   reader can feed multiple CPU meters across different screens with zero extra polling overhead.
-- **First-class shell integration** — ships the `somewm-client` bridge to
+- **First-class shell integration**: ships the `somewm-client` bridge to
   [somewm-shell](https://github.com/raven2cz/somewm-shell), a modern
   Quickshell-based overlay shell (dashboard, dock, OSD, hot edges).
 
@@ -67,7 +67,7 @@ is `Mod4` (Super).
 
 - **`somewm-client: command not found`**: Ensure the `somewm` compositor is built, installed, and present in your system's `$PATH`.
 - **Lua errors on startup**: Check the compositor logs in your TTY. Missing dependencies like `lua-lgi` or `gdk-pixbuf2` are the most common cause.
-- **Missing widgets**: Check that `fishlive/services/init.lua` has been required at startup and that each service registers its producer. A common symptom is a widget rendering but never updating — verify the corresponding service file is listed in the registry.
+- **Missing widgets**: Check that `fishlive/services/init.lua` has been required at startup and that each service registers its producer. A common symptom is a widget rendering but never updating - verify the corresponding service file is listed in the registry.
 
 ## Documentation
 
@@ -112,11 +112,11 @@ somewm-one/
 
 ## Credits
 
-- **[AwesomeWM](https://github.com/awesomeWM/awesome)** — the original
+- **[AwesomeWM](https://github.com/awesomeWM/awesome)**: the original
   Lua API, object model and widget system this project tracks. Website:
   [awesomewm.org](https://awesomewm.org/).
 - **[somewm](https://github.com/trip-zip/somewm)** by
-  [@trip-zip](https://github.com/trip-zip) — the wlroots port that made
+  [@trip-zip](https://github.com/trip-zip) - the wlroots port that made
   AwesomeWM-on-Wayland real. This is the canonical upstream project
   `somewm-one` is built for.
   *Note: I also maintain a [development fork at raven2cz/somewm](https://github.com/raven2cz/somewm)
@@ -125,16 +125,16 @@ somewm-one/
   upstream and contributes back via PRs; use it only if you specifically
   need one of the in-flight changes.*
 - **[layout-machi](https://github.com/xinhaoyuan/layout-machi)** by
-  [@xinhaoyuan](https://github.com/xinhaoyuan) — the interactive tiling
+  [@xinhaoyuan](https://github.com/xinhaoyuan) - the interactive tiling
   layout engine vendored under `layout-machi/`.
 - **[rubato](https://github.com/andOrlando/rubato)** by
-  [@andOrlando](https://github.com/andOrlando) — the Lua animation
+  [@andOrlando](https://github.com/andOrlando) - the Lua animation
   library vendored under `fishlive/rubato/`.
-- **[Quickshell](https://quickshell.outfoxxed.me/)** — the engine behind
+- **[Quickshell](https://quickshell.outfoxxed.me/)**: the engine behind
   the companion [somewm-shell](https://github.com/raven2cz/somewm-shell).
 
 ## License
 
-- **MIT** — `fishlive/` framework, `rc.lua`, themes, scripts
-- **GPL** — upstream AwesomeWM Lua code bundled by the compositor
+- **MIT**: `fishlive/` framework, `rc.lua`, themes, scripts
+- **GPL**: upstream AwesomeWM Lua code bundled by the compositor
   (see the somewm repository)

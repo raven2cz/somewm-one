@@ -1,4 +1,4 @@
-# Style Guide — somewm-one
+# Style Guide: somewm-one
 
 Code conventions for the `somewm-one` reference configuration and the
 `fishlive` framework. New files stay consistent by following this document.
@@ -34,7 +34,7 @@ signal they emit, the payload shape, and the poll interval (or
 contract `M.create(screen, config) -> wibox.widget` with `@tparam` /
 `@treturn` tags.
 
-`rc.lua` is the only exception — it carries the project signature header
+`rc.lua` is the only exception - it carries the project signature header
 (raven ASCII + project tagline) instead of an LDoc block.
 
 ## Module init conventions
@@ -68,11 +68,11 @@ rc.lua execution flow:
 
 `titlebars` and `client_fixes` attach `request::titlebars` /
 `property::*` handlers that assume the rule set is already registered.
-This invariant is covered by the test suite (`tests/test-all.sh` — section
+This invariant is covered by the test suite (`tests/test-all.sh` - section
 "Config Module Init Convention").
 
 Utility modules (e.g. `recording.lua`, `menu.lua`) are not signal-connecting
-and just export a table of functions — no `setup()`.
+and just export a table of functions - no `setup()`.
 
 ### Services (`fishlive/services/*.lua`)
 
@@ -103,7 +103,7 @@ qs ipc -c somewm call somewm-shell:<module> <method> [args]
 
 - `<module>` names are flat (no dashes in the module slot).
 - Handlers live in a single QML owner file on the shell side.
-- Payloads are small and typed — no multi-line eval, no dynamic code
+- Payloads are small and typed - no multi-line eval, no dynamic code
   construction from user input.
 - Globals the shell reads or writes are namespaced as `awesome._<name>`
   (never bare `_G.name`).

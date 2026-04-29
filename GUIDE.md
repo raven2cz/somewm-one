@@ -3,7 +3,7 @@
 ## What is somewm-one?
 
 A reference configuration and widget framework for the [somewm](https://github.com/raven2cz/somewm)
-Wayland compositor. It is not a personal dotfile — it is a curated starting
+Wayland compositor. It is not a personal dotfile - it is a curated starting
 point that ships the same Lua contracts the upstream AwesomeWM user knows
 (`client`, `tag`, `screen`, signals, `rc.lua`) plus a small opinionated
 framework called **fishlive** for building themed, reactive widgets.
@@ -77,12 +77,12 @@ rules.setup()  ──►  titlebars.setup()  &  client_fixes.setup()
 ```
 
 `request::titlebars` fires **after** the rule engine has classified a new
-client — so `titlebars` and `client_fixes` must be loaded after `rules`.
+client, so `titlebars` and `client_fixes` must be loaded after `rules`.
 Everything else is order-independent. The test suite enforces this.
 
 ## The fishlive framework
 
-### broker.lua — the signal bus
+### broker.lua: the signal bus
 
 ```lua
 local broker = require("fishlive.broker")
@@ -129,7 +129,7 @@ timer {
 return M
 ```
 
-Bootstrap: require `fishlive.services` once at startup — it loads the
+Bootstrap: require `fishlive.services` once at startup - it loads the
 registry which in turn requires every service module.
 
 ### components (consumers)
@@ -147,7 +147,7 @@ M.create(screen, config) -> wibox.widget
 Location: `fishlive/components/<name>.lua`. See `components/cpu.lua` for
 a reference implementation.
 
-### factory.lua — theme-aware resolver
+### factory.lua: theme-aware resolver
 
 When a wibar asks for "the CPU widget", `factory` looks first in the
 current theme (`themes/<name>/widgets/cpu.lua`) and falls back to the
@@ -239,7 +239,7 @@ somewm-client reload
 ```
 
 **Rule:** always edit in this repo. Never hand-edit
-`~/.config/somewm/rc.lua` directly — `deploy.sh` overwrites it.
+`~/.config/somewm/rc.lua` directly - `deploy.sh` overwrites it.
 
 Dry-run to preview the sync:
 
@@ -258,7 +258,7 @@ make test
 ```
 
 The shell's test suite (`../somewm-shell/tests/test-all.sh`) also exercises
-the Lua ↔ Shell contract and the `.setup()` convention — run it after
+the Lua ↔ Shell contract and the `.setup()` convention - run it after
 changes that cross the boundary.
 
 ### Adding a new service
@@ -282,7 +282,7 @@ changes that cross the boundary.
 ### Adding a keybinding
 
 `fishlive/config/keybindings.lua` exposes `M.setup(args)`. Add your
-binding there — do not put `awful.key` calls in `rc.lua`.
+binding there - do not put `awful.key` calls in `rc.lua`.
 
 ### Adding an autostart entry
 
@@ -324,13 +324,13 @@ autostart.start_all()
 
 Decision tree for new entries:
 
-- **`mode`** — does the program stay alive (`"respawn"`) or fork+exit
+- **`mode`**: does the program stay alive (`"respawn"`) or fork+exit
   (`"oneshot"`, default)?
-- **`when`** — `"ready::tray"` for system tray icons, `"ready::xwayland"`
+- **`when`**: `"ready::tray"` for system tray icons, `"ready::xwayland"`
   for X11 clients, `"ready::portal"` for portal-dependent apps,
   `"ready::somewm"` for anything touching the compositor protocol.
-- **`delay`** — seconds to wait after gates pass; useful for staggering.
-- **`retries`** — overrides default (oneshot 1, respawn -1/infinite).
+- **`delay`**: seconds to wait after gates pass; useful for staggering.
+- **`retries`**: overrides default (oneshot 1, respawn -1/infinite).
 
 Inspect at runtime:
 
@@ -444,8 +444,8 @@ bash "${SOMEWM_SHELL_PATH:-$HOME/git/github/somewm-shell}/theme-export.sh"
 
 ## Further reading
 
-- [STYLE.md](STYLE.md) — file headers, module init, IPC naming
-- [../somewm-shell/IPC.md](../somewm-shell/IPC.md) — Lua ↔ Shell contract
-- [../somewm-shell/GUIDE.md](../somewm-shell/GUIDE.md) — the shell side
+- [STYLE.md](STYLE.md) - file headers, module init, IPC naming
+- [../somewm-shell/IPC.md](../somewm-shell/IPC.md) - Lua ↔ Shell contract
+- [../somewm-shell/GUIDE.md](../somewm-shell/GUIDE.md) - the shell side
 - Upstream AwesomeWM docs still apply for anything framework-level
   (`awful.*`, `gears.*`, `wibox.*`, `naughty.*`).
