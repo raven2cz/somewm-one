@@ -217,6 +217,18 @@ function M.setup(args)
 		awful.key({ "Control", "Shift" }, "Print", function()
 			awful.spawn.with_shell('grim -g "$(slurp)" - | wl-copy')
 		end, { description = "screenshot region to clipboard", group = "screenshot" }),
+		-- Native interactive snipping surface (region/window picker).
+		awful.key({ modkey, "Control" }, "p", function()
+			local s = awful.screenshot { interactive = true }
+			s:connect_signal("snipping::start", function(self)
+				if self._private.frame then
+					self._private.imagebox.visible = false
+					self._private.frame.bg = "#00000040"
+					self._private.frame.surface_scale = 1.0
+				end
+			end)
+			s:refresh()
+		end, { description = "interactive screenshot (region/window)", group = "screenshot" }),
 	})
 
 	---------------------------------------------------------------------------

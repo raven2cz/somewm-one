@@ -32,8 +32,11 @@ function M.setup()
 	M._initialized = true
 
 	-- Client lifecycle
-	client.connect_signal("manage", push_state)
-	client.connect_signal("unmanage", push_state)
+	-- request::manage / request::unmanage: the bare manage/unmanage signals
+	-- were removed in somewm 2.0. push_state is a fire-and-forget IPC
+	-- invalidate, so the earlier request:: timing is fine.
+	client.connect_signal("request::manage", push_state)
+	client.connect_signal("request::unmanage", push_state)
 	client.connect_signal("focus", push_state)
 	-- Client property changes
 	client.connect_signal("property::name", push_state)

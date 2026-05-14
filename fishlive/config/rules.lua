@@ -177,6 +177,18 @@ function M.setup()
 			shadow         = { enabled = false },
 		},
 	}
+
+	-- Nested wlroots compositors (somewm-sandbox.sh integration testing).
+	-- Verified class = "wlroots". Don't let a sandbox steal focus or pull
+	-- the active tag away from the real session.
+	ruled.client.append_rule {
+		id         = "wlroots-nested",
+		rule       = { class = "wlroots" },
+		properties = {
+			focus       = false,
+			switchtotag = false,
+		},
+	}
 	end)
 end
 

@@ -77,6 +77,10 @@ local themeName = themes_service.get_current()
 beautiful.init(gears.filesystem.get_configuration_dir() .. "themes/" .. themeName .. "/theme.lua")
 ST.mark("rc:beautiful.init")
 
+-- somewm "S" wordmark for the wibar launcher (replaces AwesomeWM's "a").
+-- Theme-aware; must run after beautiful.init and before menus.setup().
+beautiful.awesome_icon = require("fishlive.somewm_icon").generate()
+
 pcall(function() require("lockscreen").init() end);            ST.mark("rc:lockscreen.init")
 pcall(function() require("fishlive.exit_screen").init() end);  ST.mark("rc:exit_screen.init")
 -- }}}
@@ -92,6 +96,16 @@ awesome._set_keyboard_setting("xkb_layout", "us,cz")
 awesome._set_keyboard_setting("xkb_variant", ",qwerty")
 awesome._set_keyboard_setting("xkb_options", "grp:alt_shift_toggle")
 awesome._set_keyboard_setting("numlock", true)
+
+-- Pointer / touchpad (libinput-backed, compositor-wide — applies to all input
+-- devices). All commented: current behavior is unchanged. Uncomment and tune
+-- as needed. Setting names from awful/input.lua; -1 / nil = device default.
+-- awful.input.accel_profile         = "flat"   -- "flat" | "adaptive"
+-- awful.input.accel_speed           = 0.0      -- -1.0 .. 1.0
+-- awful.input.natural_scrolling     = 1        -- 0 | 1
+-- awful.input.tap_to_click          = 1        -- touchpad: 0 | 1
+-- awful.input.left_handed           = 0        -- 0 | 1
+-- awful.input.middle_button_emulation = 0      -- 0 | 1
 -- }}}
 
 -- {{{ Tag layouts
@@ -193,11 +207,19 @@ require("fishlive.config.rules").setup();          ST.mark("rc:after:rules.setup
 require("fishlive.config.titlebars").setup();      ST.mark("rc:after:titlebars.setup")
 require("fishlive.config.client_fixes").setup();   ST.mark("rc:after:client_fixes.setup")
 require("fishlive.components.notifications");      ST.mark("rc:after:notifications")
+require("fishlive.config.ipc").setup();            ST.mark("rc:after:ipc.setup")
 -- }}}
 
--- Master-Slave layout: new clients go to slave
-client.connect_signal("manage", function(c)
-    if not awesome.startup then c:to_secondary_section() end
+-- Master-Slave layout: new clients go to slave.
+-- The bare "manage" signal was removed in somewm 2.0; "request::manage" fires
+-- before rules/placement, so defer to_secondary_section() one event cycle to
+-- keep the old "after manage" timing.
+client.connect_signal("request::manage", function(c)
+    if not awesome.startup then
+        gears.timer.delayed_call(function()
+            if c.valid then c:to_secondary_section() end
+        end)
+    end
 end)
 
 -- Sloppy focus (focus follows mouse)
