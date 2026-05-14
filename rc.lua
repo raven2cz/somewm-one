@@ -214,8 +214,12 @@ require("fishlive.config.ipc").setup();            ST.mark("rc:after:ipc.setup")
 -- The bare "manage" signal was removed in somewm 2.0; "request::manage" fires
 -- before rules/placement, so defer to_secondary_section() one event cycle to
 -- keep the old "after manage" timing.
-client.connect_signal("request::manage", function(c)
-    if not awesome.startup then
+-- Gate on context == "new": hot-reload re-emits request::manage for every
+-- existing client with context "restart" — without this filter the handler
+-- would reshuffle the whole window layout on every reload. awesome.startup
+-- additionally excludes the initial client scan.
+client.connect_signal("request::manage", function(c, context)
+    if context == "new" and not awesome.startup then
         gears.timer.delayed_call(function()
             if c.valid then c:to_secondary_section() end
         end)
