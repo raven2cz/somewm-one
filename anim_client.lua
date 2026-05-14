@@ -415,6 +415,11 @@ function anim_client.enable(user_config)
         local s = get(c)
         if s.geo_animating then return end
         if c.maximized then
+            -- Record the expanded geometry here: request::geometry has already
+            -- applied it synchronously, but property::geometry is queued and
+            -- only drains after animate_geo() sets geo_animating, so its
+            -- handler can no longer record max_geo on its own.
+            s.max_geo = c:geometry()
             local from = s.normal_geo
             if not from then return end
             animate_geo(c, from, c:geometry(), "maximize")
@@ -430,6 +435,9 @@ function anim_client.enable(user_config)
         local s = get(c)
         if s.geo_animating then return end
         if c.fullscreen then
+            -- See the maximize handler: capture the expanded geometry now
+            -- because the queued property::geometry drains too late.
+            s.max_geo = c:geometry()
             local from = s.normal_geo
             if not from then return end
             animate_geo(c, from, c:geometry(), "fullscreen")
