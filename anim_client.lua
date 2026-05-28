@@ -388,6 +388,18 @@ function anim_client.get_config()
     return config
 end
 
+--- Is a geometry animation currently in flight for this client?
+-- Used by handlers that observe c:geometry() and would otherwise capture
+-- mid-animation state. Returns true between animate_geo() and its
+-- completion callback (both maximize/fullscreen and silent layout paths
+-- set this flag).
+-- @tparam client c
+-- @treturn boolean
+function anim_client.is_geo_animating(c)
+    local s = cstate[c]
+    return s ~= nil and s.geo_animating == true
+end
+
 --- Enable animations with optional config overrides.
 -- @tparam[opt] table user_config Override table (deep-merged over defaults)
 function anim_client.enable(user_config)

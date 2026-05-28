@@ -39,6 +39,17 @@ function M.update_mpv_aspect(c)
 		return
 	end
 
+	-- Skip if a geometry animation is in flight. anim_client emits
+	-- property::size for every interpolated frame; capturing aspect from
+	-- mid-animation geometry creates a feedback loop where the C-side
+	-- aspect_ratio constraint and update_mpv_aspect drift the ratio per
+	-- frame (observed on the fullscreen→windowed return path: ratio
+	-- shifted ~2 % per F-cycle and grew over repeated cycles).
+	local ok, anim = pcall(require, "anim_client")
+	if ok and anim.is_geo_animating and anim.is_geo_animating(c) then
+		return
+	end
+
 	local cw, ch = content_size(c, c:geometry())
 	if cw > 0 and ch > 0 then
 		c.aspect_ratio = cw / ch
