@@ -104,9 +104,17 @@ describe("spotify service", function()
 	end)
 
 	describe("commands", function()
+		local function follow_has(arg)
+			for _, a in ipairs(spotify.FOLLOW_CMD) do
+				if a == arg then return true end
+			end
+			return false
+		end
+
 		it("scopes every command to the spotify player", function()
 			assert.is_truthy(spotify.METADATA_CMD:find("-p spotify", 1, true))
-			assert.is_truthy(spotify.FOLLOW_CMD:find("-p spotify", 1, true))
+			assert.is_true(follow_has("-p"))
+			assert.is_true(follow_has("spotify"))
 		end)
 
 		it("silences metadata stderr, which is noisy with no player", function()
@@ -114,7 +122,22 @@ describe("spotify service", function()
 		end)
 
 		it("follows rather than polls", function()
-			assert.is_truthy(spotify.FOLLOW_CMD:find("--follow", 1, true))
+			assert.is_true(follow_has("--follow"))
+		end)
+
+		it("line-buffers the follow stream", function()
+			-- Without stdbuf, playerctl block buffers into a pipe: the first
+			-- line arrives and every later one sits in the buffer, so track
+			-- changes only showed up when the backstop poll came round, five
+			-- seconds later.
+			assert.are.equal("stdbuf", spotify.FOLLOW_CMD[1])
+			assert.are.equal("-oL", spotify.FOLLOW_CMD[2])
+		end)
+
+		it("passes the follow command as a table, not a string", function()
+			-- awful.spawn splits a string command shell-like, which mangles
+			-- the {{...}} template; a table reaches playerctl verbatim.
+			assert.are.equal("table", type(spotify.FOLLOW_CMD))
 		end)
 
 		it("keeps a backstop poll, since follow may miss the player exiting", function()

@@ -125,8 +125,19 @@ function service:stop()
 	end
 
 	if self._event_pid then
-		local awful_spawn = self._deps.spawn or require("awful.spawn")
-		awful_spawn.easy_async("kill " .. self._event_pid, function() end)
+		-- awesome.kill is a direct syscall. easy_async("kill ...") needs a turn
+		-- of the event loop to spawn the helper, which it does not get when
+		-- stop() runs from the "exit" signal during a reload -- that is how
+		-- eight stray pactl subscribe processes accumulated, one per reload,
+		-- some of them outliving the compositor.
+		local killed = false
+		if _G.awesome and _G.awesome.kill then
+			killed = pcall(_G.awesome.kill, self._event_pid, 15)  -- SIGTERM
+		end
+		if not killed then
+			local awful_spawn = self._deps.spawn or require("awful.spawn")
+			awful_spawn.easy_async("kill " .. self._event_pid, function() end)
+		end
 		self._event_pid = nil
 	end
 end

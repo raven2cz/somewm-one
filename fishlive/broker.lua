@@ -124,16 +124,38 @@ function broker.get_value(name)
 	return broker._values[name]
 end
 
---- Reset broker state (for testing).
-function broker._reset()
-	-- Stop all producers
+--- Stop every registered producer.
+--
+-- Producers that watch an event stream hold a long-running child process
+-- (pactl subscribe, playerctl --follow). Nothing tore those down when the Lua
+-- state was rebuilt on reload, so each reload left one behind per producer --
+-- eight stray pactl processes had accumulated on this machine, some of them
+-- reparented to init and outliving the compositor itself.
+function broker.stop_all()
 	for _, sig in pairs(broker._signals) do
 		if sig.producer and sig.producer.stop then
-			sig.producer:stop()
+			local ok, err = pcall(function() sig.producer:stop() end)
+			if not ok then
+				io.stderr:write(string.format("[broker] producer stop error: %s\n", err))
+			end
 		end
 	end
+end
+
+--- Reset broker state (for testing).
+function broker._reset()
+	broker.stop_all()
 	broker._values = {}
 	broker._signals = {}
+end
+
+-- Tear the producers down when the Lua state goes away. The signal fires for
+-- both a reload and a quit. Guarded because this module is also loaded by the
+-- unit tests, which have no awesome runtime.
+if _G.awesome and _G.awesome.connect_signal then
+	_G.awesome.connect_signal("exit", function()
+		broker.stop_all()
+	end)
 end
 
 return broker

@@ -3,11 +3,16 @@
 --
 -- Event-driven: `playerctl --follow` pushes a line on every track and status
 -- change, which triggers a full metadata read. A slow backstop poll covers the
--- one transition the follow stream cannot be relied on for -- the player
--- disappearing -- so the widget hides itself even if no event arrives.
+-- player disappearing, which the follow stream is not depended on for.
 --
 -- playerctl stays alive when Spotify is not running and emits as soon as it
 -- starts, so there is nothing to restart or retry on that path.
+--
+-- The follow command runs under `stdbuf -oL`. Without it playerctl block
+-- buffers its stdout when that is a pipe rather than a terminal: the first
+-- line arrives and every later one sits in the buffer, so track changes only
+-- surfaced when the backstop poll came round. Measured before and after --
+-- five seconds to react, versus immediately.
 --
 -- Signal: data::spotify — { running, playing, artist, title, album, icon }
 -- Interval: event-driven, with a 5s backstop.
@@ -38,7 +43,12 @@ local FORMAT = table.concat({
 }, SEP)
 
 M.METADATA_CMD = "playerctl -p spotify metadata --format '" .. FORMAT .. "' 2>/dev/null"
-M.FOLLOW_CMD = "playerctl -p spotify --follow --format '{{status}}' metadata"
+-- Table form, so the arguments reach playerctl exactly as written rather than
+-- through awful.spawn's shell-like string splitting.
+M.FOLLOW_CMD = {
+	"stdbuf", "-oL",
+	"playerctl", "-p", "spotify", "--follow", "--format", "{{status}}", "metadata",
+}
 
 local STOPPED = {
 	running = false,

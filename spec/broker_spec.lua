@@ -162,4 +162,43 @@ describe("broker", function()
 			assert.is_nil(broker.get_value("test::reset"))
 		end)
 	end)
+
+	describe("stop_all", function()
+		it("stops every registered producer", function()
+			broker._reset()
+			local stopped = {}
+			for _, name in ipairs({ "test::a", "test::b" }) do
+				broker.register_producer(name, {
+					start = function() end,
+					stop = function() stopped[name] = true end,
+				})
+			end
+
+			broker.stop_all()
+
+			assert.is_true(stopped["test::a"])
+			assert.is_true(stopped["test::b"])
+		end)
+
+		it("keeps going when one producer's stop throws", function()
+			-- One bad producer must not strand the others' child processes.
+			broker._reset()
+			local stopped_good = false
+			broker.register_producer("test::bad", {
+				stop = function() error("boom") end,
+			})
+			broker.register_producer("test::good", {
+				stop = function() stopped_good = true end,
+			})
+
+			assert.has_no.errors(function() broker.stop_all() end)
+			assert.is_true(stopped_good)
+		end)
+
+		it("tolerates a producer with no stop method", function()
+			broker._reset()
+			broker.register_producer("test::nostop", { start = function() end })
+			assert.has_no.errors(function() broker.stop_all() end)
+		end)
+	end)
 end)
