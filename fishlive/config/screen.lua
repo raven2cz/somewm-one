@@ -29,7 +29,7 @@ local M = {}
 
 -- Default wibar right-side components (theme can override via beautiful.wibar_components)
 local default_components = {
-	"keyboard", "updates", "cpu", "gpu", "memory",
+	"spotify", "keyboard", "updates", "cpu", "gpu", "memory",
 	"disk", "network", "volume", "systray", "clock", "layoutbox",
 }
 

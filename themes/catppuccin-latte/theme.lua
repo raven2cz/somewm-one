@@ -206,6 +206,7 @@ theme.widget_memory_color     = "#ea76cb"  -- Pink
 theme.widget_disk_color       = "#df8e1d"  -- Yellow
 theme.widget_network_color    = "#179299"  -- Teal
 theme.widget_volume_color     = "#d20f39"  -- Red
+theme.widget_spotify_color    = "#40a02b"  -- Green
 theme.widget_updates_color    = "#fe640b"  -- Peach
 theme.widget_keyboard_color   = "#04a5e5"  -- Sky
 theme.widget_clock_color      = accent     -- #8839ef Mauve

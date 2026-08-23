@@ -26,6 +26,12 @@ service.__index = service
 --   parser    (function) Parse stdout: function(stdout) -> data_table or nil
 --   event_cmd (string)   Long-running event command (e.g. "pactl subscribe")
 --   event_filter (function) Filter event lines: function(line) -> bool
+--   safety_interval (number) With event_cmd, also re-poll `command` this often
+--                        as a backstop. Use when the event source is not
+--                        guaranteed to report every transition -- playerctl
+--                        --follow, for instance, is reliable for track and
+--                        status changes but its behaviour when the player
+--                        itself disappears is not something to depend on.
 -- @treturn service New service instance
 function service.new(opts)
 	assert(opts.signal, "service requires a signal name")
@@ -40,6 +46,7 @@ function service.new(opts)
 		parser       = opts.parser or function(stdout) return stdout end,
 		event_cmd    = opts.event_cmd,
 		event_filter = opts.event_filter,
+		safety_interval = opts.safety_interval,
 		_timer       = nil,
 		_event_pid   = nil,
 		_running     = false,
@@ -112,6 +119,11 @@ function service:stop()
 		self._timer = nil
 	end
 
+	if self._safety_timer then
+		self._safety_timer:stop()
+		self._safety_timer = nil
+	end
+
 	if self._event_pid then
 		local awful_spawn = self._deps.spawn or require("awful.spawn")
 		awful_spawn.easy_async("kill " .. self._event_pid, function() end)
@@ -123,8 +135,8 @@ end
 function service:_start_event_watcher(broker, awful_spawn)
 	local gen = self._generation
 
-	-- Initial state fetch (if command also provided)
-	if self.command then
+	local function refresh()
+		if not self.command then return end
 		awful_spawn.easy_async_with_shell(self.command, function(stdout)
 			if not self._running or self._generation ~= gen then return end
 			local data = self.parser(stdout)
@@ -134,6 +146,22 @@ function service:_start_event_watcher(broker, awful_spawn)
 		end)
 	end
 
+	-- Initial state fetch (if command also provided)
+	refresh()
+
+	-- Backstop poll for event sources that may miss a transition
+	if self.safety_interval and self.command then
+		local gears_timer = self._deps.timer or require("gears.timer")
+		self._safety_timer = gears_timer {
+			timeout   = self.safety_interval,
+			autostart = true,
+			callback  = function()
+				if not self._running or self._generation ~= gen then return end
+				refresh()
+			end,
+		}
+	end
+
 	-- Long-running event listener
 	local function start_listener()
 		if not self._running or self._generation ~= gen then return end
@@ -141,14 +169,8 @@ function service:_start_event_watcher(broker, awful_spawn)
 			stdout = function(line)
 				if not self._running or self._generation ~= gen then return end
 				local should_update = not self.event_filter or self.event_filter(line)
-				if should_update and self.command then
-					awful_spawn.easy_async_with_shell(self.command, function(stdout)
-						if not self._running or self._generation ~= gen then return end
-						local data = self.parser(stdout)
-						if data ~= nil then
-							broker.emit_signal(self.signal_name, data)
-						end
-					end)
+				if should_update then
+					refresh()
 				end
 			end,
 			exit = function()

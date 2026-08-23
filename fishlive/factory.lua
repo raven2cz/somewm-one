@@ -99,7 +99,22 @@ function factory.widget_bar(screen, names)
 			widgets[#widgets + 1] = factory.create(name, screen)
 		end
 		if i < #names then
-			widgets[#widgets + 1] = sep()
+			local s = sep()
+			local w = widgets[#widgets]
+			-- A component that hides itself -- spotify, when nothing is
+			-- playing -- would otherwise leave its separator floating on an
+			-- empty stretch of bar. Mirror the component's visibility onto the
+			-- separator. set_visible() emits widget::layout_changed rather
+			-- than property::visible, so that is what we track; the mirror is
+			-- idempotent, so the extra calls from unrelated layout changes
+			-- cost nothing.
+			if type(w) == "table" and w.connect_signal then
+				s.visible = w.visible ~= false
+				w:connect_signal("widget::layout_changed", function()
+					s.visible = w.visible ~= false
+				end)
+			end
+			widgets[#widgets + 1] = s
 		end
 	end
 	return widgets

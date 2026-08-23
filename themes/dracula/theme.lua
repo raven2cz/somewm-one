@@ -205,6 +205,7 @@ theme.widget_memory_color     = "#ff79c6"  -- Pink
 theme.widget_disk_color       = "#f1fa8c"  -- Yellow
 theme.widget_network_color    = accent     -- #bd93f9 Purple
 theme.widget_volume_color     = "#ff5555"  -- Red
+theme.widget_spotify_color    = "#50fa7b"  -- Green
 theme.widget_updates_color    = "#ffb86c"  -- Orange
 theme.widget_keyboard_color   = "#8be9fd"  -- Cyan
 theme.widget_clock_color      = accent     -- #bd93f9 Purple
