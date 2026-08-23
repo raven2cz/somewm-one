@@ -27,11 +27,17 @@ local function titlebar_sizes(c)
 	return top or 0, right or 0, bottom or 0, left or 0
 end
 
+-- Content area of a client, i.e. what the aspect ratio describes.
+-- Only titlebars come off: c:geometry() has been border-exclusive since the
+-- kolo10 upstream sync (3f6cfd9/a247cd5), and the compositor's own aspect
+-- clamp in window.c/objects/client.c uses the same definition. Subtracting the
+-- border here as well made the two disagree by 2*border_width, and since
+-- update_mpv_aspect re-derives the ratio from geometry on every
+-- property::size, the disagreement compounded and the window crept smaller.
 local function content_size(c, geo)
 	local top, right, bottom, left = titlebar_sizes(c)
-	local bw2 = 2 * (c.border_width or 0)
-	return geo.width - bw2 - left - right,
-		geo.height - bw2 - top - bottom
+	return geo.width - left - right,
+		geo.height - top - bottom
 end
 
 function M.update_mpv_aspect(c)
@@ -62,10 +68,10 @@ local function apply_aspect_geometry(c, geo, args)
 		return geo
 	end
 
+	-- Titlebars only; see content_size() on why the border is not included.
 	local top, right, bottom, left = titlebar_sizes(c)
-	local bw2 = 2 * (c.border_width or 0)
-	local deco_w = bw2 + left + right
-	local deco_h = bw2 + top + bottom
+	local deco_w = left + right
+	local deco_h = top + bottom
 	local cw = geo.width - deco_w
 	local ch = geo.height - deco_h
 	if cw <= 0 or ch <= 0 then
