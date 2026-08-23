@@ -8,11 +8,17 @@
 -- playerctl stays alive when Spotify is not running and emits as soon as it
 -- starts, so there is nothing to restart or retry on that path.
 --
--- The follow command runs under `stdbuf -oL`. Without it playerctl block
--- buffers its stdout when that is a pipe rather than a terminal: the first
--- line arrives and every later one sits in the buffer, so track changes only
--- surfaced when the backstop poll came round. Measured before and after --
--- five seconds to react, versus immediately.
+-- Two things the follow stream needs to get right, both learned by tracing it:
+--
+--   * It runs under `stdbuf -oL`. Without that, playerctl block buffers its
+--     stdout when that is a pipe rather than a terminal: the first line
+--     arrives and every later one sits in the buffer.
+--   * It carries the FULL payload, not just {{status}}. playerctl only prints
+--     when the formatted output changes, so a status-only template says
+--     nothing at all when one playing track follows another -- every track
+--     change fell through to the backstop poll. The full template also means
+--     the event line is the data, so there is no second playerctl process per
+--     change.
 --
 -- Signal: data::spotify — { running, playing, artist, title, album, icon }
 -- Interval: event-driven, with a 5s backstop.
@@ -47,7 +53,7 @@ M.METADATA_CMD = "playerctl -p spotify metadata --format '" .. FORMAT .. "' 2>/d
 -- through awful.spawn's shell-like string splitting.
 M.FOLLOW_CMD = {
 	"stdbuf", "-oL",
-	"playerctl", "-p", "spotify", "--follow", "--format", "{{status}}", "metadata",
+	"playerctl", "-p", "spotify", "--follow", "--format", FORMAT, "metadata",
 }
 
 local STOPPED = {
@@ -103,9 +109,10 @@ end
 
 local s = service.new {
 	signal          = "data::spotify",
-	command         = M.METADATA_CMD,
+	command         = M.METADATA_CMD,   -- initial state and the backstop
 	parser          = M.parse,
 	event_cmd       = M.FOLLOW_CMD,
+	event_parser    = M.parse,          -- the event line is already the data
 	safety_interval = 5,
 }
 

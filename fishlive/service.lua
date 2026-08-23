@@ -26,6 +26,10 @@ service.__index = service
 --   parser    (function) Parse stdout: function(stdout) -> data_table or nil
 --   event_cmd (string)   Long-running event command (e.g. "pactl subscribe")
 --   event_filter (function) Filter event lines: function(line) -> bool
+--   event_parser (function) Parse an event line straight into data:
+--                        function(line) -> data_table or nil. Use when the
+--                        event stream already carries the whole payload; it
+--                        saves re-running `command` on every event.
 --   safety_interval (number) With event_cmd, also re-poll `command` this often
 --                        as a backstop. Use when the event source is not
 --                        guaranteed to report every transition -- playerctl
@@ -46,6 +50,7 @@ function service.new(opts)
 		parser       = opts.parser or function(stdout) return stdout end,
 		event_cmd    = opts.event_cmd,
 		event_filter = opts.event_filter,
+		event_parser = opts.event_parser,
 		safety_interval = opts.safety_interval,
 		_timer       = nil,
 		_event_pid   = nil,
@@ -180,9 +185,17 @@ function service:_start_event_watcher(broker, awful_spawn)
 			stdout = function(line)
 				if not self._running or self._generation ~= gen then return end
 				local should_update = not self.event_filter or self.event_filter(line)
-				if should_update then
-					refresh()
+				if not should_update then return end
+				-- An event_parser means the event line already carries the
+				-- payload, so emit from it and skip re-running the command.
+				if self.event_parser then
+					local data = self.event_parser(line)
+					if data ~= nil then
+						broker.emit_signal(self.signal_name, data)
+					end
+					return
 				end
+				refresh()
 			end,
 			exit = function()
 				-- Auto-restart on 5s delay if still running

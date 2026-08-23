@@ -134,6 +134,24 @@ describe("spotify service", function()
 			assert.are.equal("-oL", spotify.FOLLOW_CMD[2])
 		end)
 
+		it("follows the full payload, not just the status", function()
+			-- playerctl only prints when the formatted output changes, so a
+			-- {{status}}-only template says nothing when one playing track
+			-- follows another: every track change fell through to the 5s
+			-- backstop. Measured before and after -- ~4s, versus ~0.08s.
+			local fmt
+			for i, a in ipairs(spotify.FOLLOW_CMD) do
+				if a == "--format" then fmt = spotify.FOLLOW_CMD[i + 1] end
+			end
+			assert.is_truthy(fmt)
+			assert.is_truthy(fmt:find("{{markup_escape(title)}}", 1, true))
+			assert.is_truthy(fmt:find("{{status}}", 1, true))
+		end)
+
+		it("parses the event line itself rather than re-running playerctl", function()
+			assert.are.equal(spotify.parse, spotify.service.event_parser)
+		end)
+
 		it("passes the follow command as a table, not a string", function()
 			-- awful.spawn splits a string command shell-like, which mangles
 			-- the {{...}} template; a table reaches playerctl verbatim.

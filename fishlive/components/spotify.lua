@@ -32,9 +32,10 @@ local wh = require("fishlive.widget_helper")
 
 local M = {}
 
-local PLAY_PAUSE = "playerctl -p spotify play-pause"
-local NEXT = "playerctl -p spotify next"
-local PREV = "playerctl -p spotify previous"
+-- Table form: no shell in the way, so the click reaches playerctl directly.
+local PLAY_PAUSE = { "playerctl", "-p", "spotify", "play-pause" }
+local NEXT = { "playerctl", "-p", "spotify", "next" }
+local PREV = { "playerctl", "-p", "spotify", "previous" }
 
 --- Create the Spotify widget for a screen.
 -- @tparam screen screen The awful.screen the widget belongs to
@@ -69,6 +70,14 @@ function M.create(screen, config)
 	}
 	widget.visible = false
 
+	-- Scroll position does not follow the content. Without resetting it, a new
+	-- track inherits wherever the previous long title had scrolled to, so you
+	-- are shown the middle of a name you have not read the start of -- which
+	-- reads as the widget lagging behind the button you just pressed. The step
+	-- function pauses at each end, so a reset also holds the new title still
+	-- for a moment.
+	local last_title
+
 	local tooltip = awful.tooltip {
 		mode = "outside",
 		preferred_positions = { "bottom" },
@@ -85,6 +94,7 @@ function M.create(screen, config)
 				-- Stop the animation timer while nothing is on screen.
 				scroller:pause()
 			end
+			last_title = nil
 			tooltip.markup = ""
 			return
 		end
@@ -96,6 +106,11 @@ function M.create(screen, config)
 			wh.number_font, color, data.artist)
 		title.markup = string.format('<span font="%s" foreground="%s">%s</span>',
 			wh.number_font, color, data.title)
+
+		if data.title ~= last_title then
+			last_title = data.title
+			scroller:reset_scrolling()
+		end
 
 		tooltip.markup = string.format(
 			"<b>Artist</b>: %s\n<b>Song</b>: %s\n<b>Album</b>: %s",
@@ -110,7 +125,7 @@ function M.create(screen, config)
 	broker.connect_signal("data::spotify", render)
 
 	widget:buttons(gears.table.join(
-		awful.button({}, 1, function() awful.spawn.with_shell(PLAY_PAUSE .. " &") end),
+		awful.button({}, 1, function() awful.spawn(PLAY_PAUSE, false) end),
 		awful.button({}, 3, function()
 			for _, c in ipairs(client.get()) do
 				if c.class == "Spotify" then
@@ -119,8 +134,8 @@ function M.create(screen, config)
 				end
 			end
 		end),
-		awful.button({}, 4, function() awful.spawn.with_shell(NEXT .. " &") end),
-		awful.button({}, 5, function() awful.spawn.with_shell(PREV .. " &") end)
+		awful.button({}, 4, function() awful.spawn(NEXT, false) end),
+		awful.button({}, 5, function() awful.spawn(PREV, false) end)
 	))
 
 	return widget
