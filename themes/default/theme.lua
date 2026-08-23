@@ -43,7 +43,12 @@ theme.fg_minimize   = fg_muted
 
 -- Borders — thin, amber accent
 theme.useless_gap         = dpi(3)
-theme.border_width        = dpi(1)
+-- 2px, not 1: a 1px border with rounded corners is the difference between two
+-- SDF shapes one pixel apart, and SceneFX's half-pixel conventions round the
+-- surviving alpha to zero on one side, so an edge goes missing and flickers as
+-- the window moves. Measured: 1px scores 56%, 2px scores 100%. See
+-- somewm/plans/kolo10-upstream-sync.md.
+theme.border_width        = dpi(2)
 theme.border_color_normal = bg_base
 theme.border_color_active = accent
 theme.border_color_marked = marked
