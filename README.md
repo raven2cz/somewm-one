@@ -88,8 +88,8 @@ somewm-one/
 │   ├── broker.lua       # pub/sub signal bus
 │   ├── factory.lua      # theme-aware widget resolver
 │   ├── config/          # keybindings, menus, screen, rules, titlebars, …
-│   ├── services/        # producers (cpu, gpu, memory, volume, network, …)
-│   └── components/      # widgets (cpu, memory, volume, clock, layoutbox, …)
+│   ├── services/        # producers (cpu, gpu, memory, volume, spotify, …)
+│   └── components/      # widgets (cpu, memory, volume, spotify, clock, …)
 ├── themes/
 │   └── default/         # Gruvbox Material reference theme
 ├── layout-machi/        # vendored layout engine

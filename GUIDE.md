@@ -132,6 +132,58 @@ return M
 Bootstrap: require `fishlive.services` once at startup - it loads the
 registry which in turn requires every service module.
 
+### Event-driven services
+
+Polling is the wrong shape when the thing you are watching can tell you it
+changed. `fishlive.service` takes an `event_cmd`: a long-running process whose
+every stdout line is a change notification.
+
+```lua
+service.new {
+    signal          = "data::spotify",
+    event_cmd       = { "stdbuf", "-oL", "playerctl", "--follow", ... },
+    event_parser    = parse,   -- the line already carries the payload
+    command         = METADATA_CMD,  -- initial state, and the backstop
+    parser          = parse,
+    safety_interval = 5,
+}
+```
+
+Two options shape what happens per event:
+
+- **`event_parser`** parses the event line straight into data. Use it when the
+  stream already carries everything; it saves spawning `command` on every
+  change. Without it, each event re-runs `command` instead (what
+  `services/volume.lua` does with `pactl subscribe`, since the subscribe
+  stream only says *that* something changed).
+- **`safety_interval`** adds a slow backstop poll alongside the events, for
+  transitions the stream cannot be relied on to report. Spotify uses it for
+  the player disappearing.
+
+Three traps, all of which cost real debugging time and are worth knowing
+before you write the next one:
+
+1. **Buffering.** A program writing to a pipe rather than a terminal usually
+   switches to block buffering, so the first line arrives and everything after
+   it sits in a 4 KB buffer until it fills. Symptom: the widget updates once
+   and then only ever via the backstop poll. Run the command under
+   `stdbuf -oL`.
+2. **Deduplicating sources.** `playerctl --follow` prints only when its
+   *formatted output changes*. A `{{status}}` template therefore says nothing
+   when one playing track follows another. Make the template carry enough to
+   differ on every change you care about - which usually means carrying the
+   whole payload, at which point `event_parser` is free.
+3. **Teardown.** The child process must be killed when the Lua state is torn
+   down, or every reload leaks one. `broker.stop_all()` runs from the
+   compositor's `exit` signal and `service:stop()` uses `awesome.kill`, a
+   direct syscall - an async `kill` never gets its turn of the event loop
+   during teardown.
+
+When something is slow or erratic, measure the stages rather than guessing:
+time the underlying tool on its own, then log when event lines arrive versus
+when data is emitted. Spotify's own MPRIS latency is ~60 ms; anything much
+above that was ours.
+
 ### components (consumers)
 
 A component is a reusable widget with a single public contract:
@@ -145,7 +197,15 @@ M.create(screen, config) -> wibox.widget
 - Returns the widget; caller places it in the wibar.
 
 Location: `fishlive/components/<name>.lua`. See `components/cpu.lua` for
-a reference implementation.
+a reference implementation, and `components/spotify.lua` for one that hides
+itself when it has nothing to show, scrolls text that does not fit, and takes
+mouse input.
+
+A component that hides itself just sets `widget.visible`. `factory.widget_bar`
+mirrors that onto the separator drawn after it, so a hidden widget does not
+leave a stray `│` on an empty stretch of bar. If the widget runs an animation,
+pause it while hidden - `spotify.lua` pauses its scroll container - or an
+invisible widget keeps a timer alive for nothing.
 
 ### factory.lua: theme-aware resolver
 
