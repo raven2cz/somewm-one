@@ -15,8 +15,14 @@
 --   layout + swap     -> animation_layout_duration 0.15 s
 --   focus             -> animation_focus_duration 0.15 s (border colour ease,
 --                        new in 2.1, had no v1 equivalent)
---   tag switch        -> animation_tag = "fade", 0.2 s (v1 tag_slide is not
---                        available on 2.x; see somewm plans/v2/)
+--   tag switch        -> KDE-like slide (M.tag_slide): a switch to a higher
+--                        tag index brings the new clients (and the tag's
+--                        wallpaper) in from the right edge, a lower index
+--                        from the left; 0.25 s. 2.1 animates only the frame
+--                        of a leaving client, its content snaps away, so the
+--                        old desktop does not visibly slide out. v1
+--                        tag_slide also emitted tag_slide::start/end for the
+--                        shell collage; 2.x has no such signals.
 --   scenefx corners   -> c.shape = 14 through a rule, square for games/Wine
 --   notifications     -> M.popup_animation, used by components/notifications
 --   blur, minimize fade, layer-surface and dialog-specific animations have
@@ -57,8 +63,17 @@ M.theme_defaults = {
 	animation_layout_duration = 0.15,
 	animation_focus_duration = 0.15,
 	animation_tag = "fade",
-	animation_tag_duration = 0.2,
+	animation_tag_duration = 0.25,
 }
+
+--- Slide clients on a tag switch, direction by tag index. false keeps the
+-- theme's animation_tag (fade by default).
+M.tag_slide = true
+
+--- Entrance words for a switch to a higher / lower tag index. A slide word
+-- names the edge arriving clients come from (measured on 2.1: slide_right
+-- enters from the right edge).
+M.slide_words = { forward = "slide_right", backward = "slide_left" }
 
 --- Animation policy for notification popups (awful.popup `animation`).
 M.popup_animation = {
@@ -102,6 +117,28 @@ function M.setup()
 				c.shape = M.client_shape(c)
 			end,
 		}
+	end)
+
+	-- Tag slide: the tag word is read when the next frame is declared,
+	-- after property::selected, so choosing it here applies to both the
+	-- clients leaving and the ones arriving.
+	local last_index = setmetatable({}, { __mode = "k" })
+	for s in screen do
+		last_index[s] = s.selected_tag and s.selected_tag.index
+	end
+	tag.connect_signal("property::selected", function(t)
+		if not M.tag_slide or not t.screen then return end
+		if not t.selected then
+			-- First switch on a screen: the tag being left is the origin.
+			if last_index[t.screen] == nil then last_index[t.screen] = t.index end
+			return
+		end
+		local prev = last_index[t.screen]
+		last_index[t.screen] = t.index
+		if prev and prev ~= t.index then
+			beautiful.animation_tag = t.index > prev
+				and M.slide_words.forward or M.slide_words.backward
+		end
 	end)
 
 	-- Square while fullscreen, rounded again afterwards.
