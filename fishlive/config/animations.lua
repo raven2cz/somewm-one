@@ -134,9 +134,11 @@ function M.setup()
 	-- after property::selected, so choosing it here applies to both the
 	-- clients leaving and the ones arriving.
 	local last_index = setmetatable({}, { __mode = "k" })
-	-- Per-screen slide generation: a switch inside a running slide restarts
-	-- it, so only the latest slide's timer may announce the end.
-	local slide_gen = setmetatable({}, { __mode = "k" })
+	-- Slide generation: a switch inside a running slide restarts it, so only
+	-- the latest slide's timer may announce the end. One counter for all
+	-- screens, because the shell broadcasts slideEnd to every screen's
+	-- collage: an earlier slide on another screen must not end it either.
+	local slide_gen = 0
 	for s in screen do
 		last_index[s] = s.selected_tag and s.selected_tag.index
 	end
@@ -155,11 +157,11 @@ function M.setup()
 			-- The v1 tag_slide signals, kept for somewm-shell's collage,
 			-- which defers its rebuild until the slide is over.
 			local s = t.screen
-			local gen = (slide_gen[s] or 0) + 1
-			slide_gen[s] = gen
+			slide_gen = slide_gen + 1
+			local gen = slide_gen
 			awesome.emit_signal("tag_slide::start", s, t.name)
 			gears.timer.start_new(beautiful.animation_tag_duration or 0, function()
-				if slide_gen[s] == gen then
+				if slide_gen == gen then
 					awesome.emit_signal("tag_slide::end", s)
 				end
 				return false
