@@ -1,5 +1,5 @@
 ---------------------------------------------------------------------------
---- Notifications component — naughty config + display with anim_client fade-in.
+--- Notifications component — naughty config + display with a fade-in popup animation.
 --
 -- Auto-initializes on require (like services). All theme values are read
 -- dynamically from beautiful at display time, so colorscheme changes
@@ -8,7 +8,7 @@
 -- Features:
 --   - Notification history (global awesome._notif_history, last 50)
 --   - Shell IPC push on each notification
---   - Fade-in animation via anim_client (gracefully skipped if unavailable)
+--   - Fade-in through the popup animation policy (fishlive.config.animations)
 --
 -- Usage from rc.lua:
 --   require("fishlive.components.notifications")
@@ -162,6 +162,7 @@ naughty.connect_signal("request::display", function(n)
 	local popup = naughty.layout.box {
 		notification = n,
 		border_width = 0,
+		animation = require("fishlive.config.animations").popup_animation,
 		maximum_width = dpi(900),
 		shape = function(cr, w, h)
 			gears.shape.rounded_rect(cr, w, h, dpi(6))
@@ -213,11 +214,6 @@ naughty.connect_signal("request::display", function(n)
 		},
 	}
 
-	-- FadeIn animation (uses compositor frame-synced animation engine)
-	local anim_ok, anim = pcall(require, "anim_client")
-	if anim_ok and anim.fade_notification then
-		anim.fade_notification(popup)
-	end
 end)
 
 -- Export internals for testing

@@ -476,8 +476,7 @@ function M.setup(args)
 			awful.key({ modkey }, "t", awful.titlebar.toggle,
 				{ description = "Show/Hide Titlebars", group = "client" }),
 			awful.key({ modkey }, "n", function(c)
-				local anim = require("anim_client")
-				anim.fade_minimize(c)
+				c.minimized = true
 			end, {description = "minimize", group = "client"}),
 			-- Maximize with pre-max memento (Bug 2 preservation) and no
 			-- auto-raise (Bug 1: maximize is not an ontop request).

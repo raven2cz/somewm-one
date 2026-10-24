@@ -204,6 +204,7 @@ ST.mark("rc:after:keybindings.setup")
 -- connect signals (request::titlebars, property::position/size) that
 -- only fire for clients already classified by the rule engine.
 require("fishlive.config.rules").setup();          ST.mark("rc:after:rules.setup")
+require("fishlive.config.animations").setup();     ST.mark("rc:after:animations.setup")
 require("fishlive.config.titlebars").setup();      ST.mark("rc:after:titlebars.setup")
 require("fishlive.config.client_fixes").setup();   ST.mark("rc:after:client_fixes.setup")
 require("fishlive.components.notifications");      ST.mark("rc:after:notifications")
@@ -299,7 +300,12 @@ autostart.add{
 -- and exits immediately, so it is the cheapest way to wake XWayland.
 awful.spawn.easy_async({ "xprop", "-root", "_NET_SUPPORTED" }, function() end)
 
-autostart.start_all();                             ST.mark("rc:after:autostart_start")
+-- SOMEWM_NO_AUTOSTART=1 skips the session daemons above: a nested test
+-- compositor must not start a second kded6/nm-applet/polkit agent next to
+-- the host session's own.
+if os.getenv("SOMEWM_NO_AUTOSTART") ~= "1" then
+    autostart.start_all()
+end;                                               ST.mark("rc:after:autostart_start")
 
 -- theme-export.sh lives in the sibling somewm-shell repo. SOMEWM_SHELL_PATH
 -- env var overrides the default location. If the script is absent, skip
@@ -319,7 +325,9 @@ local function relaunch_qs()
         function() awful.spawn("qs -c somewm -n -d") end
     )
 end
-if gears.filesystem.file_executable(theme_export) then
+if os.getenv("SOMEWM_NO_SHELL") == "1" then
+    -- Nested tests without Quickshell: relaunch_qs would pkill the host's qs.
+elseif gears.filesystem.file_executable(theme_export) then
     -- argv-form (table, not string) avoids shell parsing — safe for
     -- SOMEWM_SHELL_PATH containing spaces or shell metacharacters.
     awful.spawn.easy_async({ theme_export }, relaunch_qs)
@@ -330,40 +338,6 @@ end                                                ST.mark("rc:spawn.async:theme
 
 -- {{{ Shell IPC (push state to QuickShell)
 require("fishlive.config.shell_ipc").setup();      ST.mark("rc:after:shell_ipc.setup")
--- }}}
-
--- {{{ Animations
-pcall(function()
-    require("anim_client").enable({
-        enabled = true,
-        maximize     = { enabled = true,  duration = 0.25, easing = "ease-out-cubic" },
-        fullscreen   = { enabled = true,  duration = 0.25, easing = "ease-out-cubic" },
-        fade         = { enabled = true,  duration = 0.5,  easing = "ease-out-cubic" },
-        minimize     = { enabled = true,  duration = 0.4,  easing = "ease-out-cubic" },
-        layer        = { enabled = true,  duration = 0.2,  easing = "ease-out-cubic" },
-        dialog       = { enabled = true,  duration = 0.2,  easing = "ease-out-cubic" },
-        swap         = { enabled = true,  duration = 0.25, easing = "ease-out-cubic" },
-        float        = { enabled = true,  duration = 0.3,  easing = "ease-out-cubic" },
-        layout       = { enabled = true,  duration = 0.15, easing = "ease-out-cubic" },
-        notification = { enabled = true,  duration = 0.5,  easing = "ease-out-cubic" },
-        scenefx = {
-            enabled       = true,
-            corner_radius = 14,
-            blur_enabled  = true,
-            blur_opacity  = 0.75,
-            blur_classes  = { "Alacritty", "ghostty", "kitty", "foot", "Rofi" },
-            no_corners    = { "steam_app_*", "Wine", "Xwayland" },
-        },
-    })
-end);                                              ST.mark("rc:after:anim_client.enable")
-
-pcall(function()
-    require("somewm.tag_slide").enable({
-        duration  = 0.25,
-        easing    = "ease-out-cubic",
-        wallpaper = { enabled = true },
-    })
-end);                                              ST.mark("rc:after:tag_slide.enable")
 -- }}}
 
 -- Final boundary. After this rc.lua returns control to C; subsequent marks

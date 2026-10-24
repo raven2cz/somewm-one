@@ -1,5 +1,6 @@
 local this_package = ... and (...):match("(.-)[^%.]+$") or ""
 local machi_engine = require(this_package.."engine")
+local paint = require(this_package.."paint")
 local beautiful = require("beautiful")
 local awful = require("awful")
 local wibox = require("wibox")
@@ -344,7 +345,7 @@ function module.create(data)
             for i, a in ipairs(open_areas) do
                 log(DEBUG, "  " .. _area_tostring(a))
             end
-            infobox.bgimage = draw_info
+            paint(infobox, draw_info)
         end
 
         local function get_final_cmd()

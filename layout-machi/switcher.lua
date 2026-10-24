@@ -7,6 +7,7 @@ local capi = {
     client = client
 }
 
+local paint = require((...):match("(.-)[^%.]+$") .. "paint")
 local beautiful = require("beautiful")
 local wibox = require("wibox")
 local awful = require("awful")
@@ -269,7 +270,7 @@ function module.start(c, exit_keys)
         cr:fill()
     end
 
-    infobox.bgimage = draw_info
+    paint(infobox, draw_info)
 
     local key_translate_tab = {
         ["w"] = "Up",
@@ -319,7 +320,7 @@ function module.start(c, exit_keys)
                 c:emit_signal("request::activate", "mouse.move", {raise=false})
                 c:raise()
 
-                infobox.bgimage = draw_info
+                paint(infobox, draw_info)
             end
         elseif key == "Up" or key == "Down" or key == "Left" or key == "Right" then
             local current_area = selected_area()
@@ -491,7 +492,7 @@ function module.start(c, exit_keys)
                     end
                 end
 
-                infobox.bgimage = draw_info
+                paint(infobox, draw_info)
             end
         elseif (key == "q" or key == "Prior") then
             local current_area = selected_area()
@@ -516,7 +517,7 @@ function module.start(c, exit_keys)
                 awful.layout.arrange(screen)
             end
 
-            infobox.bgimage = draw_info
+            paint(infobox, draw_info)
         elseif (key =="e" or key == "Next") then
             local current_area = selected_area()
             if #parent_stack <= 1 or parent_stack[#parent_stack] ~= current_area then
@@ -536,7 +537,7 @@ function module.start(c, exit_keys)
                 awful.layout.arrange(screen)
             end
 
-            infobox.bgimage = draw_info
+            paint(infobox, draw_info)
         elseif key == "/" then
             local current_area = selected_area()
             local original_cmd = machi.engine.areas_to_command(areas, true, current_area)

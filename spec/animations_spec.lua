@@ -92,8 +92,11 @@ package.preload["menubar.utils"] = function()
 	}
 end
 
-package.preload["anim_client"] = function()
-	return { fade_notification = function() end }
+package.preload["fishlive.config.animations"] = function()
+	return {
+		popup_animation = { visible = { duration = 0, enter = "fade", exit = "fade" } },
+		apply_theme_keys = function() end,
+	}
 end
 
 -- Stubbable portraits service for notification-fallback tests.

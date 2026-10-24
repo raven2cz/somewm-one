@@ -164,7 +164,7 @@ function M.setup()
 		end
 	}
 
-	-- Web widgets (WebKitGTK) — no blur/corners to avoid SceneFX crash
+	-- Web widgets (WebKitGTK): square, borderless, no shadow
 	ruled.client.append_rule {
 		id         = "webwidgets",
 		rule_any   = { name = { "somewm%-widget.*" } },
@@ -172,8 +172,6 @@ function M.setup()
 			floating       = true,
 			ontop          = true,
 			border_width   = 0,
-			corner_radius  = 0,
-			backdrop_blur  = false,
 			shadow         = { enabled = false },
 		},
 	}

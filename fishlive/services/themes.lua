@@ -278,6 +278,8 @@ function themes.switch(theme_name)
 
 	-- Apply new theme via beautiful
 	beautiful.init(theme_lua)
+	-- beautiful.init replaced the theme table; restore the animation keys.
+	require("fishlive.config.animations").apply_theme_keys()
 
 	-- Re-apply wallpapers for all screens using new theme's wallpapers
 	local wp_service = require("fishlive.services.wallpaper")
