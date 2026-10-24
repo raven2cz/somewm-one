@@ -6,6 +6,12 @@ package.path = "./?.lua;" .. package.path
 
 -- Mock dependencies
 local mock_broker_signals = {}
+-- themes.switch() re-fills the animation theme keys; stub the module so this
+-- spec does not depend on ruled/client (or on another spec's stub).
+package.preload["fishlive.config.animations"] = function()
+	return { apply_theme_keys = function() end }
+end
+
 package.preload["fishlive.broker"] = function()
 	return {
 		emit_signal = function(name, data)

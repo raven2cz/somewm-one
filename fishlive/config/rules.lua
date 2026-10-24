@@ -148,7 +148,10 @@ function M.setup()
 		end,
 	}
 
-	-- GLava visualizer (click-through, no focus)
+	-- GLava visualizer (click-through, no focus).
+	-- NOTE somewm 2.x: client shape masks (shape_input) are accepted and never
+	-- read, so the click-through below is a no-op there and GLava takes
+	-- pointer input. Kept for the v1 compositor.
 	ruled.client.append_rule {
 		id         = "glava",
 		rule_any   = { name = { "GLava" } },

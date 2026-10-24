@@ -16,11 +16,14 @@
 --   focus             -> animation_focus_duration 0.15 s (border colour ease,
 --                        new in 2.1, had no v1 equivalent)
 --   tag switch        -> KDE-like slide (M.tag_slide): a switch to a higher
---                        tag index brings the new clients (and the tag's
---                        wallpaper) in from the right edge, a lower index
---                        from the left; 0.25 s. 2.1 animates only the frame
---                        of a leaving client, its content snaps away, so the
---                        old desktop does not visibly slide out. The v1
+--                        tag index brings the new clients in from the right
+--                        edge, a lower index from the left; 0.25 s. The
+--                        wallpaper switches at once (measured), and 2.1
+--                        animates only the frame of a leaving client, its
+--                        content snaps away, so only the arriving windows
+--                        visibly slide. One global word: two screens
+--                        switching in opposite directions in the same frame
+--                        would share the last one (not seen in use). The v1
 --                        tag_slide::start/end signals (shell collage) are
 --                        emitted around the slide.
 --   scenefx corners   -> c.shape = 14 through a rule, square for games/Wine
@@ -50,8 +53,12 @@ local M = { _initialized = false }
 --- Client corner radius in pixels (v1: scenefx.corner_radius).
 M.corner_radius = 14
 
---- Classes that keep square corners (Lua patterns, matched by ruled).
+--- Classes that keep square corners (Lua patterns on c.class).
 M.square_classes = { "^steam_app_", "^Wine$", "^Xwayland$", "%.exe$" }
+
+--- Window names that keep square corners (Lua patterns on c.name): the
+-- WebKitGTK desktop widgets (rules.lua "webwidgets").
+M.square_names = { "^somewm%-widget" }
 
 --- Defaults for the animation theme keys.
 M.theme_defaults = {
@@ -91,9 +98,12 @@ function M.apply_theme_keys()
 end
 
 local function is_square_class(c)
-	local class = c.class or ""
+	local class, name = c.class or "", c.name or ""
 	for _, pattern in ipairs(M.square_classes) do
 		if class:find(pattern) then return true end
+	end
+	for _, pattern in ipairs(M.square_names) do
+		if name:find(pattern) then return true end
 	end
 	return false
 end
@@ -124,6 +134,9 @@ function M.setup()
 	-- after property::selected, so choosing it here applies to both the
 	-- clients leaving and the ones arriving.
 	local last_index = setmetatable({}, { __mode = "k" })
+	-- Per-screen slide generation: a switch inside a running slide restarts
+	-- it, so only the latest slide's timer may announce the end.
+	local slide_gen = setmetatable({}, { __mode = "k" })
 	for s in screen do
 		last_index[s] = s.selected_tag and s.selected_tag.index
 	end
@@ -142,9 +155,13 @@ function M.setup()
 			-- The v1 tag_slide signals, kept for somewm-shell's collage,
 			-- which defers its rebuild until the slide is over.
 			local s = t.screen
+			local gen = (slide_gen[s] or 0) + 1
+			slide_gen[s] = gen
 			awesome.emit_signal("tag_slide::start", s, t.name)
 			gears.timer.start_new(beautiful.animation_tag_duration or 0, function()
-				awesome.emit_signal("tag_slide::end", s)
+				if slide_gen[s] == gen then
+					awesome.emit_signal("tag_slide::end", s)
+				end
 				return false
 			end)
 		end
