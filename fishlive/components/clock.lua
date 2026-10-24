@@ -33,16 +33,23 @@ function M.create(screen, config)
 		return config.time_font or beautiful.font_large or "Geist SemiBold 11"
 	end
 
-	local function make_format()
+	-- Icon, date and time each in their own font: somewm 2.x draws a
+	-- multi-run markup in its first run's font.
+	local icon = wibox.widget.textbox()
+	local date = wibox.widget.textclock("", 60)
+	local time = wibox.widget.textclock("", 60)
+	local function apply_format()
 		local tc = get_time_color()
-		local df = get_date_font()
-		local tf = get_time_font()
-		return '<span font="' .. icon_font .. '" foreground="' .. tc .. '">󰥔 </span>' ..
-			'<span foreground="' .. date_color .. '" font="' .. df .. '">%a %d %b </span>' ..
-			'<span foreground="' .. tc .. '" font="' .. tf .. '">%H:%M</span>'
+		icon.font = icon_font
+		icon.markup = '<span foreground="' .. tc .. '">󰥔 </span>'
+		date.font = get_date_font()
+		date:set_format('<span foreground="' .. date_color .. '">%a %d %b </span>')
+		time.font = get_time_font()
+		time:set_format('<span foreground="' .. tc .. '">%H:%M</span>')
 	end
+	apply_format()
 
-	local clock = wibox.widget.textclock(make_format(), 60)
+	local clock = wibox.widget { icon, date, time, layout = wibox.layout.fixed.horizontal }
 
 	-- Calendar popup — rebuilt on theme switch
 	local cal_popup
@@ -88,7 +95,7 @@ function M.create(screen, config)
 
 	-- Update clock format and popup on theme switch
 	broker.connect_signal("data::theme", function()
-		clock:set_format(make_format())
+		apply_format()
 		create_popup()
 	end)
 

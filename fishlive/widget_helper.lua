@@ -4,7 +4,9 @@
 -- Design rules:
 -- 1. Icon font: Symbols Nerd Font Mono (fixed width, no half-cut)
 -- 2. Number font: CommitMono Nerd Font Propo (monospace digits)
--- 3. Icon and text in same textbox via markup (no layout spacing issues)
+-- 3. One textbox per font: somewm 2.x draws a markup with several runs in
+--    the first run's font (colours survive, fonts do not), so icon and text
+--    sit in adjacent textboxes of a zero-spacing fixed layout
 -- 4. Fixed-width number formatting via string.format width specifiers
 --
 -- @module fishlive.widget_helper
@@ -12,6 +14,7 @@
 
 local wibox = require("wibox")
 local beautiful = require("beautiful")
+local gears_string = require("gears.string")
 
 local M = {}
 
@@ -26,20 +29,36 @@ M.shadow_memo = {
 	test    = { radius = 40, opacity = 0.85, offset_x = 5, offset_y = 7 },
 }
 
---- Create a widget with icon + text in a SINGLE textbox.
+--- Create a row of adjacent single-run textboxes.
+-- @tparam number n Number of runs
+-- @treturn wibox.widget The row (a zero-spacing fixed.horizontal layout)
+-- @treturn function set(i, font, color, text) updates run i
+function M.create_runs(n)
+	local row = wibox.layout.fixed.horizontal()
+	local boxes = {}
+	for i = 1, n do
+		boxes[i] = wibox.widget.textbox()
+		row:add(boxes[i])
+	end
+	return row, function(i, font, color, text)
+		local tb = boxes[i]
+		tb.font = font
+		tb.markup = string.format('<span foreground="%s">%s</span>',
+			color, gears_string.xml_escape(tostring(text)))
+	end
+end
+
+--- Create a widget with an icon and a text, each in its own font.
 -- Color is read dynamically from beautiful on every update,
 -- so theme switches take effect immediately.
 -- @param color_key string: beautiful key name (e.g. "widget_cpu_color")
 -- @param fallback string: fallback color if beautiful key is nil
 function M.create_icon_text(color_key, fallback)
-	local tb = wibox.widget.textbox()
-	return tb, function(icon, text)
+	local row, set = M.create_runs(2)
+	return row, function(icon, text)
 		local color = beautiful[color_key] or fallback
-		tb.markup = string.format(
-			'<span font="%s" foreground="%s">%s</span>' ..
-			'<span font="%s" foreground="%s"> %s</span>',
-			M.icon_font, color, icon,
-			M.number_font, color, text)
+		set(1, M.icon_font, color, icon)
+		set(2, M.number_font, color, " " .. text)
 	end
 end
 
