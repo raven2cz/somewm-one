@@ -82,7 +82,7 @@ function M.setup()
 
 	-- Tag slide signals -> QuickShell collage IPC.
 	-- Kept single-arg (no screen name) — the slide animation itself runs
-	-- in the Lua layer (lua/somewm/tag_slide.lua) and per-screen routing
+	-- in fishlive/config/animations.lua (v1: lua/somewm/tag_slide.lua) and per-screen routing
 	-- of the QS collage overlay was reverted because it didn't help the
 	-- underlying Samsung-TV slide glitch and this path is very sensitive.
 	awesome.connect_signal("tag_slide::start", function(_, new_tag_name)

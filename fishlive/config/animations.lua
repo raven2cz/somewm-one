@@ -20,9 +20,9 @@
 --                        wallpaper) in from the right edge, a lower index
 --                        from the left; 0.25 s. 2.1 animates only the frame
 --                        of a leaving client, its content snaps away, so the
---                        old desktop does not visibly slide out. v1
---                        tag_slide also emitted tag_slide::start/end for the
---                        shell collage; 2.x has no such signals.
+--                        old desktop does not visibly slide out. The v1
+--                        tag_slide::start/end signals (shell collage) are
+--                        emitted around the slide.
 --   scenefx corners   -> c.shape = 14 through a rule, square for games/Wine
 --   notifications     -> M.popup_animation, used by components/notifications
 --   blur, minimize fade, layer-surface and dialog-specific animations have
@@ -42,6 +42,7 @@
 ---------------------------------------------------------------------------
 
 local beautiful = require("beautiful")
+local gears = require("gears")
 local ruled = require("ruled")
 
 local M = { _initialized = false }
@@ -138,6 +139,14 @@ function M.setup()
 		if prev and prev ~= t.index then
 			beautiful.animation_tag = t.index > prev
 				and M.slide_words.forward or M.slide_words.backward
+			-- The v1 tag_slide signals, kept for somewm-shell's collage,
+			-- which defers its rebuild until the slide is over.
+			local s = t.screen
+			awesome.emit_signal("tag_slide::start", s, t.name)
+			gears.timer.start_new(beautiful.animation_tag_duration or 0, function()
+				awesome.emit_signal("tag_slide::end", s)
+				return false
+			end)
 		end
 	end)
 
