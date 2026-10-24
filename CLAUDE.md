@@ -16,6 +16,22 @@ This is the **release copy** — edit here, deploy to `~/.config/somewm/`.
 - **Shell:** [somewm-shell](https://github.com/raven2cz/somewm-shell) (Quickshell/QML)
 - **Sibling fork checkout:** `~/git/github/somewm` (override with `SOMEWM_FORK_PATH`)
 
+## Lines: v2 (main) and v1 (legacy/v1)
+
+`main` targets **somewm 2.x** (the fork's v2 line, upstream 2.1 + thin delta,
+since 2026-10-24). The config for the v1 compositor (SceneFX, wlroots 0.19,
+`anim_client.lua`) is frozen on `legacy/v1` / tag `v1-legacy`. Deploy the
+line that matches the installed compositor. What changed for 2.x and why:
+`~/git/github/somewm/plans/v2/README.md`.
+
+2.x notes that bite: no `awesome.start_animation` (animations are theme keys,
+see `fishlive/config/animations.lua`); corners are `c.shape`; a function
+`bgimage` is not drawn; a markup with several fonts is drawn in its first
+run's font (use `widget_helper.create_runs`).
+
+Nested test sessions: `SOMEWM_NO_AUTOSTART=1` skips the session daemons,
+`SOMEWM_NO_SHELL=1` keeps rc.lua from (re)launching Quickshell.
+
 ## Edit / deploy / reload cycle
 
 ```bash
@@ -50,7 +66,9 @@ Quickshell — somewm-shell ships a baseline `theme.default.json`.
 ## Tests
 
 ```bash
-busted spec/                              # unit tests for fishlive modules
+# unit tests (busted for Lua 5.1 is not on PATH on Arch):
+lua5.1 /usr/lib/luarocks/rocks-5.1/busted/2.3.0-1/bin/busted \
+    --helper=spec/preload.lua --lpath='?.lua;?/init.lua' spec/
 # header lint lives in the somewm fork (override path with SOMEWM_FORK_PATH):
 bash "${SOMEWM_FORK_PATH:-$HOME/git/github/somewm}/plans/scripts/check-headers.sh"
 ```
