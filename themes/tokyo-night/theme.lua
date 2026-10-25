@@ -59,9 +59,10 @@ theme.systray_icon_spacing = dpi(4)
 
 -- Drawin/wibar shadow
 theme.shadow_drawin_enabled   = true
-theme.shadow_drawin_radius    = 30
+theme.shadow_drawin_radius    = 40
 theme.shadow_drawin_offset_x  = 0
 theme.shadow_drawin_offset_y  = 6
+theme.shadow_drawin_spread    = -16  -- at most half the bar height
 theme.shadow_drawin_opacity   = 0.5
 theme.shadow_drawin_color     = "#000000"
 
@@ -213,9 +214,13 @@ theme.terminal                = "ghostty"
 
 -- Shadow configuration
 theme.shadow_enabled    = true
-theme.shadow_radius     = 30
-theme.shadow_offset_x   = 5
-theme.shadow_offset_y   = 5
+theme.shadow_radius     = 50
+theme.shadow_offset_x   = 10
+theme.shadow_offset_y   = 10
+-- A soft, right/bottom shadow like the v1 (SceneFX) one: the solid box shrinks
+-- inside the window and the fade straddles its edge; the offset keeps the
+-- top/left part under the window. Windows under ~100 px get no shadow.
+theme.shadow_spread     = -35
 theme.shadow_opacity    = 0.65
 theme.shadow_color      = "#000000"
 
