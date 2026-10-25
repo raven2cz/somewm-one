@@ -280,6 +280,10 @@ function themes.switch(theme_name)
 	beautiful.init(theme_lua)
 	-- beautiful.init replaced the theme table; restore the animation keys.
 	require("fishlive.config.animations").apply_theme_keys()
+	-- Shadow defaults are read from beautiful once per config load; a
+	-- switch has to ask for them again (somewm.org reference "Shadows").
+	awesome.shadow_reload()
+	require("fishlive.config.animations").refresh_shadows()
 
 	-- Re-apply wallpapers for all screens using new theme's wallpapers
 	local wp_service = require("fishlive.services.wallpaper")
@@ -294,17 +298,10 @@ function themes.switch(theme_name)
 	-- may have scoped subdirs the previous theme lacked (or vice versa).
 	wp_service._scope_dir_missing = {}
 
-	-- Clear tag_slide animation cache ONCE for all screens — wallpaper_cache_clear()
-	-- is global (clears every screen's cache), so calling it inside the per-screen
-	-- loop would wipe entries preloaded for earlier screens in this same theme switch.
-	if root.wallpaper_cache_clear then root.wallpaper_cache_clear() end
-
-	-- Pre-pass: update every screen's _wppath before any apply() runs, so
-	-- tag_slide animation overlays triggered mid-loop don't reference a
-	-- screen still carrying the previous theme's path.
+	-- Pre-pass: update every screen's _wppath before any apply() runs.
 	for scr in screen do scr._wppath = wppath end
 
-	-- Re-apply wallpapers and rebuild slide cache for all screens.
+	-- Re-apply wallpapers for all screens.
 	-- Each screen resolves through its own active scope set, so a portrait
 	-- HP and a landscape Dell pick up orientation-appropriate images from
 	-- the same new theme.
@@ -316,17 +313,6 @@ function themes.switch(theme_name)
 				-- Clear cached path so apply() doesn't skip as redundant
 				scr._current_wallpaper = nil
 				wp_service.apply(scr, wp)
-			end
-		end
-		-- Rebuild tag_slide animation cache with new theme's resolved paths
-		if root.wallpaper_cache_preload then
-			local paths = {}
-			for _, tag in ipairs(scr.tags) do
-				local wp = wp_service._resolve_for_screen(scr, tag.name)
-				if wp then table.insert(paths, wp) end
-			end
-			if #paths > 0 then
-				root.wallpaper_cache_preload(paths, scr, { fit = "cover" })
 			end
 		end
 	end

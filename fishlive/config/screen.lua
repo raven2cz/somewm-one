@@ -43,9 +43,6 @@ function M.setup(args)
 	local modkey = args.modkey or "Mod4"
 	local components = beautiful.wibar_components or default_components
 
-	-- Resolve theme name for wallpaper path from beautiful
-	local theme_name = beautiful.theme_name or "default"
-
 	screen.connect_signal("request::desktop_decoration", function(s)
 		local _scr_label = (s.output and s.output.name) or ("idx" .. tostring(s.index))
 		ST.mark("screen[" .. _scr_label .. "]:decoration:start")
@@ -115,19 +112,13 @@ function M.setup(args)
 		}
 
 		ST.mark("screen[" .. _scr_label .. "]:taglist+tasklist-ready")
-		-- Wibar (visual params from theme: wibar_*, shadow_drawin_*)
+		-- Wibar (visual params from theme: wibar_*). No shadow table: a
+		-- wibox without one takes the theme's shadow_drawin_* defaults and
+		-- follows them across theme switches (awesome.shadow_reload).
 		s.mywibox = awful.wibar {
 			position     = beautiful.wibar_position or "top",
 			screen       = s,
 			border_width = beautiful.wibar_border_width or 0,
-			shadow = {
-				enabled  = beautiful.shadow_drawin_enabled,
-				radius   = beautiful.shadow_drawin_radius,
-				offset_x = beautiful.shadow_drawin_offset_x,
-				offset_y = beautiful.shadow_drawin_offset_y,
-				opacity  = beautiful.shadow_drawin_opacity,
-				color    = beautiful.shadow_drawin_color,
-			},
 			widget = {
 				layout = wibox.layout.align.horizontal,
 				{ -- Left widgets
@@ -146,7 +137,7 @@ function M.setup(args)
 		-- Tag-based Wallpaper System
 		local wppath = beautiful.wallpaper_dir
 			or (gears.filesystem.get_configuration_dir()
-				.. "themes/" .. theme_name .. "/wallpapers/")
+				.. "themes/" .. (beautiful.theme_name or "default") .. "/wallpapers/")
 
 		local wp_service = require("fishlive.services.wallpaper")
 		wp_service.init(s, wppath, "1.jpg", {

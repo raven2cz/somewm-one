@@ -219,7 +219,6 @@ theme.shadow_offset_x   = 5
 theme.shadow_offset_y   = 5
 theme.shadow_opacity    = 0.3
 theme.shadow_color      = "#000000"
-theme.shadow_clip       = "directional"
 
 -- Generate Awesome icon:
 theme.awesome_icon = theme_assets.awesome_icon(

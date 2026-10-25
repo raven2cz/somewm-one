@@ -6,10 +6,14 @@ package.path = "./?.lua;" .. package.path
 
 -- Mock dependencies
 local mock_broker_signals = {}
+local shadow_events = {}
 -- themes.switch() re-fills the animation theme keys; stub the module so this
 -- spec does not depend on ruled/client (or on another spec's stub).
 package.preload["fishlive.config.animations"] = function()
-	return { apply_theme_keys = function() end }
+	return {
+		apply_theme_keys = function() table.insert(shadow_events, "keys") end,
+		refresh_shadows = function() table.insert(shadow_events, "refresh") end,
+	}
 end
 
 package.preload["fishlive.broker"] = function()
@@ -60,11 +64,12 @@ package.preload["wibox"] = function()
 	}
 end
 
--- Stub AwesomeWM global `root` used by themes.switch() for wallpaper cache.
-_G.root = _G.root or {
-	wallpaper_cache_clear = function() end,
-	wallpaper_cache_preload = function() end,
-}
+-- themes.switch() asks somewm to re-read the beautiful.shadow_* defaults.
+local shadow_reloads = 0
+_G.awesome.shadow_reload = function()
+	shadow_reloads = shadow_reloads + 1
+	table.insert(shadow_events, "reload")
+end
 
 -- Stub screen iterator (for scr in screen do ... end)
 -- In Lua, `for var in callable_table do` uses __call as the iterator function.
@@ -273,6 +278,14 @@ return theme
 		it("persists theme selection", function()
 			themes.switch("dark")
 			assert.equals("dark", themes.get_current())
+		end)
+
+		it("reloads the shadow defaults", function()
+			local before = shadow_reloads
+			shadow_events = {}
+			themes.switch("dark")
+			assert.equals(before + 1, shadow_reloads)
+			assert.same({ "keys", "reload", "refresh" }, shadow_events)
 		end)
 
 		it("emits data::theme signal", function()

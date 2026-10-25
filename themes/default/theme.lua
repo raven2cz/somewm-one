@@ -212,8 +212,8 @@ theme.widget_clock_color      = accent     -- #e2b55a warm amber (time)
 theme.terminal                = "ghostty"
 
 -- Client animations
--- Override any: beautiful.anim_<type>_<param> (e.g. anim_maximize_duration)
--- Or disable all: beautiful.anim_enabled = false
+-- Override any: beautiful.animation_<type>_<param> (e.g. animation_maximize_duration)
+-- Or disable all: require("somewm.animation").enabled = false
 
 -- Shadow configuration (9-slice drop shadow)
 theme.shadow_enabled    = true
@@ -222,7 +222,6 @@ theme.shadow_offset_x   = 5
 theme.shadow_offset_y   = 5
 theme.shadow_opacity    = 0.65
 theme.shadow_color      = "#000000"
-theme.shadow_clip       = "directional"
 
 -- Generate Awesome icon:
 theme.awesome_icon = theme_assets.awesome_icon(

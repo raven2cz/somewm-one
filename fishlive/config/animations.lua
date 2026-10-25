@@ -26,7 +26,13 @@
 --                        would share the last one (not seen in use). The v1
 --                        tag_slide::start/end signals (shell collage) are
 --                        emitted around the slide.
---   scenefx corners   -> c.shape = 14 through a rule, square for games/Wine
+--   scenefx corners   -> c.shape = 14 through a rule, square for games/Wine.
+--                        The border follows the corners, so the theme's
+--                        focus colour stays visible on rounded clients.
+--   scenefx shadows   -> theme shadow_* keys; shadow_corner_radius follows
+--                        M.corner_radius so the shadow fits the corners;
+--                        square clients and drawins (wibar, popups) keep a
+--                        square shadow
 --   notifications     -> M.popup_animation, used by components/notifications
 --   blur, minimize fade, layer-surface and dialog-specific animations have
 --   no 2.1 equivalent and are dropped.
@@ -88,12 +94,20 @@ M.popup_animation = {
 	visible = { duration = 0.5, enter = "fade", exit = "fade" },
 }
 
---- Fill unset animation keys on the active theme.
+--- Fill unset animation and shadow-corner keys on the active theme.
 function M.apply_theme_keys()
 	for key, value in pairs(M.theme_defaults) do
 		if beautiful[key] == nil then
 			beautiful[key] = value
 		end
+	end
+	-- Client shadows round like the clients; drawins otherwise inherit the
+	-- client value (somewm.org reference "Shadows"), and the wibar is square.
+	if beautiful.shadow_corner_radius == nil then
+		beautiful.shadow_corner_radius = M.corner_radius
+	end
+	if beautiful.shadow_drawin_corner_radius == nil then
+		beautiful.shadow_drawin_corner_radius = 0
 	end
 end
 
@@ -108,10 +122,32 @@ local function is_square_class(c)
 	return false
 end
 
---- The radius a client should carry right now (nil = square).
+--- The radius a client gets (nil = square). Fullscreen is not tested here:
+-- 2.1 draws a fullscreen client square whatever its shape.
 function M.client_shape(c)
-	if c.fullscreen or is_square_class(c) then return nil end
+	if is_square_class(c) then return nil end
 	return M.corner_radius
+end
+
+local function square_shadow(c)
+	local shadow = c.shadow
+	-- Disabled overrides read back as tables too.
+	if shadow and (type(shadow) ~= "table" or shadow.enabled ~= false) then
+		c.shadow = { corner_radius = 0 }
+	end
+end
+
+--- Corners and shadow corners for a newly managed client.
+function M.apply_corners(c)
+	c.shape = M.client_shape(c)
+	if is_square_class(c) then square_shadow(c) end
+end
+
+--- Overrides copy theme defaults on assignment; refresh after shadow_reload.
+function M.refresh_shadows()
+	for _, c in ipairs(client.get()) do
+		if is_square_class(c) then square_shadow(c) end
+	end
 end
 
 function M.setup()
@@ -124,9 +160,7 @@ function M.setup()
 		ruled.client.append_rule {
 			id = "v2_corners",
 			rule = {},
-			callback = function(c)
-				c.shape = M.client_shape(c)
-			end,
+			callback = M.apply_corners,
 		}
 	end)
 
@@ -167,11 +201,6 @@ function M.setup()
 				return false
 			end)
 		end
-	end)
-
-	-- Square while fullscreen, rounded again afterwards.
-	client.connect_signal("property::fullscreen", function(c)
-		c.shape = M.client_shape(c)
 	end)
 end
 
