@@ -94,6 +94,7 @@ describe("wallpaper service", function()
 		mock_imagebox = {}
 		mock_screens = {}
 		wallpaper = require("fishlive.services.wallpaper")
+		wallpaper._overrides[""] = {}
 	end)
 
 	describe("_resolve", function()
@@ -119,7 +120,7 @@ describe("wallpaper service", function()
 		it("returns override when set", function()
 			wallpaper._wppath = "test_wallpapers/"
 			wallpaper._default = "1.jpg"
-			wallpaper._overrides["3"] = "test_wallpapers/custom.jpg"
+			wallpaper._overrides[""]["3"] = "test_wallpapers/custom.jpg"
 			local result = wallpaper._resolve("3")
 			assert.equals("test_wallpapers/custom.jpg", result)
 		end)
@@ -127,7 +128,7 @@ describe("wallpaper service", function()
 		it("override takes priority over theme-based", function()
 			wallpaper._wppath = "test_wallpapers/"
 			wallpaper._default = "1.jpg"
-			wallpaper._overrides["1"] = "test_wallpapers/override.jpg"
+			wallpaper._overrides[""]["1"] = "test_wallpapers/override.jpg"
 			local result = wallpaper._resolve("1")
 			assert.equals("test_wallpapers/override.jpg", result)
 		end)
@@ -135,11 +136,11 @@ describe("wallpaper service", function()
 		it("falls back to default when override file is gone", function()
 			wallpaper._wppath = "test_wallpapers/"
 			wallpaper._default = "1.jpg"
-			wallpaper._overrides["3"] = "/nonexistent/file.jpg"
+			wallpaper._overrides[""]["3"] = "/nonexistent/file.jpg"
 			local result = wallpaper._resolve("3")
 			-- Override cleared, falls through to theme-based
 			assert.equals("test_wallpapers/3.jpg", result)
-			assert.is_nil(wallpaper._overrides["3"])
+			assert.is_nil(wallpaper._overrides[""]["3"])
 		end)
 	end)
 
@@ -147,23 +148,23 @@ describe("wallpaper service", function()
 		it("stores override and emits signal", function()
 			wallpaper._wppath = "test_wallpapers/"
 			wallpaper.set_override("5", "test_wallpapers/new.jpg")
-			assert.equals("test_wallpapers/new.jpg", wallpaper._overrides["5"])
+			assert.equals("test_wallpapers/new.jpg", wallpaper._overrides[""]["5"])
 			assert.equals(1, #mock_broker_signals)
 			assert.equals("data::wallpaper", mock_broker_signals[1].name)
 		end)
 
 		it("ignores empty path", function()
 			wallpaper.set_override("1", "")
-			assert.is_nil(wallpaper._overrides["1"])
+			assert.is_nil(wallpaper._overrides[""]["1"])
 		end)
 	end)
 
 	describe("clear_override", function()
 		it("removes override and emits signal", function()
 			wallpaper._wppath = "test_wallpapers/"
-			wallpaper._overrides["3"] = "test_wallpapers/old.jpg"
+			wallpaper._overrides[""]["3"] = "test_wallpapers/old.jpg"
 			wallpaper.clear_override("3")
-			assert.is_nil(wallpaper._overrides["3"])
+			assert.is_nil(wallpaper._overrides[""]["3"])
 			assert.equals(1, #mock_broker_signals)
 		end)
 	end)
@@ -193,7 +194,7 @@ describe("wallpaper service", function()
 		end)
 
 		it("returns JSON with overrides", function()
-			wallpaper._overrides["1"] = "/path/to/wall.jpg"
+			wallpaper._overrides[""]["1"] = "/path/to/wall.jpg"
 			local json = wallpaper.get_overrides_json()
 			assert.truthy(json:match('"1"'))
 			assert.truthy(json:match('wall%.jpg'))
@@ -278,7 +279,7 @@ describe("wallpaper service", function()
 		end)
 
 		it("override takes priority over user-wallpapers", function()
-			wallpaper._overrides["1"] = "test_wallpapers/override.jpg"
+			wallpaper._overrides[""]["1"] = "test_wallpapers/override.jpg"
 			wallpaper._user_wppath = "test_wallpapers/user/"
 			wallpaper._wppath = "test_wallpapers/theme/"
 			wallpaper._default = "1.jpg"
@@ -424,9 +425,9 @@ describe("wallpaper service", function()
 			wallpaper._user_wppath = "/nonexistent/user-wp/"
 			wallpaper._wppath = "test_wallpapers/"
 			wallpaper._default = "1.jpg"
-			wallpaper._overrides["3"] = "test_wallpapers/custom.jpg"
+			wallpaper._overrides[""]["3"] = "test_wallpapers/custom.jpg"
 			wallpaper.clear_user_wallpaper("3")
-			assert.is_nil(wallpaper._overrides["3"])
+			assert.is_nil(wallpaper._overrides[""]["3"])
 		end)
 
 		it("emits data::wallpaper signal", function()

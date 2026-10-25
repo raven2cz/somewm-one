@@ -338,18 +338,8 @@ function wallpaper._focused_primary_scope()
 	return wallpaper._primary_scope_for_screen(focused)
 end
 
---- Update tag_slide wallpaper cache for a specific path.
--- Call after changing a wallpaper so animation overlays use the new image.
--- @tparam string path Absolute path to the new wallpaper
-local function update_slide_cache(path)
-	if not path or not root.wallpaper_cache_preload then return end
-	for scr in screen do
-		root.wallpaper_cache_preload({ path }, scr, { fit = "cover" })
-	end
-end
-
 --- Build a cover-scaled Cairo surface for the given image and screen geometry.
--- Matches the C-side cache formula: scale = max(scale_x, scale_y), centered.
+-- Cover the output and center the crop.
 -- @tparam string path  Absolute path to the image file
 -- @tparam number scr_w Screen width in pixels
 -- @tparam number scr_h Screen height in pixels
@@ -359,7 +349,7 @@ local function make_cover_surface(path, scr_w, scr_h)
 	local cairo = lgi.cairo
 
 	-- Load source surface via gears (handles PNG, JPEG, etc.)
-	local src = gears.surface(path)
+	local src = gears.surface.load_uncached_silently(path)
 	if not src then return nil end
 
 	local img_w = src.width
@@ -367,7 +357,7 @@ local function make_cover_surface(path, scr_w, scr_h)
 	if img_w == 0 or img_h == 0 then return nil end
 
 	-- Cover: use the LARGER scale factor so the image fills the screen on
-	-- both axes, cropping the overflow (identical to the C-side cache logic).
+	-- both axes, cropping the overflow.
 	local scale_x = scr_w / img_w
 	local scale_y = scr_h / img_h
 	local scale   = math.max(scale_x, scale_y)
@@ -392,63 +382,88 @@ local function make_cover_surface(path, scr_w, scr_h)
 	return dst
 end
 
---- Apply wallpaper to a screen using awful.wallpaper API (HiDPI-aware).
--- Uses cover scaling to match the C-side tag_slide animation cache exactly,
--- preventing the visual "jump" when the animation overlay is destroyed.
--- @tparam screen scr The screen object
--- @tparam string path Absolute path to wallpaper image
+-- Keep a bounded cover cache and one wallpaper tree per screen.
+local renderers = setmetatable({}, { __mode = "k" })
+local COVER_CACHE_SIZE = 3
+
 local function apply_wallpaper(scr, path)
-	if not path or not gears.filesystem.file_readable(path) then
-		return false
+	if not path or not gears.filesystem.file_readable(path) then return false end
+	local geo = scr.geometry
+	local scale = scr.scale or 1
+	local state = renderers[scr]
+	if not state then
+		state = { image = wibox.widget.imagebox(), cache = {}, order = {} }
+		renderers[scr] = state
 	end
+	if state.width ~= geo.width or state.height ~= geo.height or state.scale ~= scale then
+		state.cache, state.order = {}, {}
+		state.width, state.height, state.scale = geo.width, geo.height, scale
+		state.path = nil
+	end
+	if state.path == path and scr._current_wallpaper == path then return true end
 
-	-- Skip redundant updates
-	if scr._current_wallpaper == path then return true end
-
-	local geo  = scr.geometry
-	local surf = make_cover_surface(path, geo.width, geo.height)
-
-	-- Create a fresh awful.wallpaper each time — the constructor handles
-	-- repaint and properly replaces the previous wallpaper for this screen.
-	if surf then
-		-- Fast path: hand the pre-scaled cover surface directly to imagebox.
-		-- With resize=false the imagebox renders it 1:1 (no further scaling),
-		-- which is exactly the cover-cropped output we computed above.
-		awful.wallpaper {
+	-- Explicit reapplication can follow an overwrite at the same path.
+	if not scr._current_wallpaper then state.cache[path] = nil end
+	local surf = state.cache[path]
+	if not surf then
+		surf = make_cover_surface(path, math.max(1, math.ceil(geo.width * scale)),
+			math.max(1, math.ceil(geo.height * scale)))
+		if surf then
+			state.cache[path] = surf
+			state.order[#state.order + 1] = path
+			if #state.order > COVER_CACHE_SIZE then
+				state.cache[table.remove(state.order, 1)] = nil
+			end
+		end
+	end
+	state.image.image = surf or path
+	state.image.resize = true
+	state.image.upscale, state.image.downscale = true, true
+	state.image.forced_width, state.image.forced_height = geo.width, geo.height
+	if not state.wallpaper then
+		state.wallpaper = awful.wallpaper {
 			screen = scr,
 			widget = {
-				{
-					image  = surf,
-					resize = false,
-					widget = wibox.widget.imagebox,
-				},
+				state.image,
 				valign = "center",
 				halign = "center",
-				tiled  = false,
-				widget = wibox.container.tile,
-			}
+				widget = wibox.container.place,
+			},
 		}
 	else
-		-- Fallback: contain scaling if surface construction fails.
-		awful.wallpaper {
-			screen = scr,
-			widget = {
-				{
-					image     = path,
-					upscale   = true,
-					downscale = true,
-					widget    = wibox.widget.imagebox,
-				},
-				valign = "center",
-				halign = "center",
-				tiled  = false,
-				widget = wibox.container.tile,
-			}
-		}
+		state.wallpaper:repaint()
 	end
-
+	state.path = path
 	scr._current_wallpaper = path
 	return true
+end
+
+local function refresh_screen(scr, invalidate)
+	if not scr._wppath then return end
+	if invalidate then
+		local state = renderers[scr]
+		if state then state.cache, state.order, state.path = {}, {}, nil end
+		scr._current_wallpaper = nil
+	end
+	local selected = scr.selected_tag or (scr.tags and scr.tags[1])
+	local path = wallpaper._resolve_for_screen(scr, selected and selected.name or "1")
+	if path then apply_wallpaper(scr, path) end
+end
+
+local function connect_wallpaper_signals()
+	if wallpaper._signals_connected then return end
+	wallpaper._signals_connected = true
+	tag.connect_signal("property::selected", function(t)
+		if t.selected and t.screen then refresh_screen(t.screen) end
+	end)
+	screen.connect_signal("request::wallpaper", function(scr)
+		refresh_screen(scr, true)
+	end)
+	-- A scale change can leave logical geometry unchanged.
+	screen.connect_signal("property::scale", function(scr)
+		refresh_screen(scr, true)
+	end)
+	screen.connect_signal("removed", function(scr) renderers[scr] = nil end)
 end
 
 --- Initialize the wallpaper service for a screen.
@@ -475,75 +490,10 @@ function wallpaper.init(scr, wppath, default_wallpaper, opts)
 		wallpaper._scopes_loaded = true
 	end
 
-	-- Expose wppath for tag_slide animation overlays
 	scr._wppath = wppath
+	connect_wallpaper_signals()
+	refresh_screen(scr)
 
-	-- Initial wallpaper: use screen's first tag name
-	local first_tag = scr.tags and scr.tags[1]
-	local init_tag = first_tag and first_tag.name or "1"
-	local path = wallpaper._resolve_for_screen(scr, init_tag)
-	ST.mark("wp[" .. _scr_label .. "]:before:apply_wallpaper(active-tag)")
-	if path then apply_wallpaper(scr, path) end
-	ST.mark("wp[" .. _scr_label .. "]:after:apply_wallpaper(active-tag)")
-
-	-- Pre-cache all resolved wallpapers for tag_slide animation overlays.
-	-- Clear stale cache only ONCE per session — cache_clear() is global (wipes
-	-- all screens), so on multi-screen setups (connect_for_each_screen runs
-	-- per screen) repeated clears would erase entries preloaded for screens
-	-- processed earlier. Previous-session staleness is handled by the first call.
-	if root.wallpaper_cache_clear and not wallpaper._cache_cleared_this_session then
-		root.wallpaper_cache_clear()
-		wallpaper._cache_cleared_this_session = true
-		ST.mark("wp[" .. _scr_label .. "]:cache_clear")
-	end
-	if root.wallpaper_cache_preload then
-		local paths = {}
-		for _, tag in ipairs(scr.tags) do
-			local wp = wallpaper._resolve_for_screen(scr, tag.name)
-			if wp then table.insert(paths, wp) end
-		end
-		ST.mark("wp[" .. _scr_label .. "]:before:cache_preload(" .. #paths .. " paths)")
-		if #paths > 0 then root.wallpaper_cache_preload(paths, scr, { fit = "cover" }) end
-		ST.mark("wp[" .. _scr_label .. "]:after:cache_preload")
-	end
-
-	-- Switch wallpaper on tag selection
-	for _, tag in ipairs(scr.tags) do
-		tag:connect_signal("property::selected", function(t)
-			if t.selected then
-				local wp = wallpaper._resolve_for_screen(t.screen, t.name)
-				if wp then apply_wallpaper(t.screen, wp) end
-			end
-		end)
-	end
-
-	-- Re-apply on screen geometry change (hotplug, transform/resolution switch).
-	-- Scope may flip (portrait↔landscape) — _resolve_for_screen picks it up
-	-- since auto-scope rules re-evaluate on every call. apply_wallpaper's
-	-- cover surface bakes in geo.width × geo.height at apply time; invalidate
-	-- this screen's cache entries, drop _current_wallpaper, then re-run apply
-	-- and cache preload so both the active surface and the cached scene
-	-- buffers match the final output layout.
-	scr:connect_signal("property::geometry", function(s)
-		if root.wallpaper_cache_invalidate_screen then
-			root.wallpaper_cache_invalidate_screen(s.index)
-		end
-		s._current_wallpaper = nil
-
-		local sel = s.selected_tag
-		local tag_name = sel and sel.name or (s.tags[1] and s.tags[1].name) or "1"
-		local wp = wallpaper._resolve_for_screen(s, tag_name)
-		if wp then apply_wallpaper(s, wp) end
-
-		if root.wallpaper_cache_preload then
-			local paths = {}
-			for _, tag in ipairs(s.tags) do
-				local p = wallpaper._resolve_for_screen(s, tag.name)
-				if p then table.insert(paths, p) end
-			end
-			if #paths > 0 then root.wallpaper_cache_preload(paths, s, { fit = "cover" }) end
-		end
-	end)
 	ST.mark("wp[" .. _scr_label .. "]:init:end")
 end
 
@@ -677,7 +627,6 @@ local function refresh_after_scope_change(scr)
 			if wp then
 				s._current_wallpaper = nil
 				apply_wallpaper(s, wp)
-				update_slide_cache(wp)
 			end
 		end
 	end
@@ -867,7 +816,6 @@ function wallpaper.set_override(tag_name, path, scope)
 		end
 	end
 
-	update_slide_cache(path)
 	broker.emit_signal("data::wallpaper", wallpaper._get_state())
 end
 
@@ -897,7 +845,6 @@ function wallpaper.clear_override(tag_name, scope)
 			if resolved then
 				scr._current_wallpaper = nil
 				apply_wallpaper(scr, resolved)
-				update_slide_cache(resolved)
 			end
 		end
 	end
@@ -984,7 +931,6 @@ function wallpaper.save_to_theme(tag_name, source_path, scope)
 		end
 	end
 
-	update_slide_cache(dest)
 	broker.emit_signal("data::wallpaper", wallpaper._get_state())
 	return true
 end
@@ -1205,7 +1151,6 @@ function wallpaper.clear_user_wallpaper(tag_name, scope)
 			if wp then
 				scr._current_wallpaper = nil
 				apply_wallpaper(scr, wp)
-				update_slide_cache(wp)
 			end
 		end
 	end
