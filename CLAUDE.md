@@ -24,8 +24,12 @@ since 2026-10-24). The config for the v1 compositor (SceneFX, wlroots 0.19,
 line that matches the installed compositor. What changed for 2.x and why:
 `~/git/github/somewm/plans/v2/README.md`.
 
+2.x uses wlroots 0.20.2, GLES2/pixman and Clay rendering. Client corners use
+`client.shape`; shadows use upstream's nine-patch renderer through
+`beautiful.shadow_*`. There is no blur.
+
 2.x notes that bite: no `awesome.start_animation` (animations are theme keys,
-see `fishlive/config/animations.lua`); corners are `c.shape`; a function
+see `fishlive/config/animations.lua`); a function
 `bgimage` is not drawn; a markup with several fonts is drawn in its first
 run's font (use `widget_helper.create_runs`).
 

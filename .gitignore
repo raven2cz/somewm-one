@@ -13,6 +13,10 @@ Thumbs.db
 *.luac
 luacov.*.out
 
+# Python bytecode
+__pycache__/
+*.py[cod]
+
 # Local artifacts
 *.bak
 .deploy.log

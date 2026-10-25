@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![AwesomeWM API](https://img.shields.io/badge/AwesomeWM_API-v4-blue.svg)](https://awesomewm.org/)
-[![Wayland](https://img.shields.io/badge/Wayland-wlroots_0.19-purple.svg)](https://gitlab.freedesktop.org/wlroots/wlroots)
+[![Wayland](https://img.shields.io/badge/Wayland-wlroots_0.20.2-purple.svg)](https://gitlab.freedesktop.org/wlroots/wlroots)
 
 <p align="center">
   <a href="https://youtu.be/QCiAMZFddSc">
@@ -24,6 +24,11 @@ AwesomeWM Lua API you already know (`client`, `tag`, `screen`, signals,
 called **fishlive** for building themed, reactive widgets without
 per-widget polling loops.
 
+The v2 line targets upstream somewm 2.1 with wlroots 0.20.2, GLES2/pixman
+and Clay rendering. Client corners use `client.shape`; shadows use
+upstream's nine-patch renderer configured through `beautiful.shadow_*`.
+There is no blur.
+
 - **A 210-line `rc.lua`**: pure orchestration, no 1500-line config
   spaghetti. All logic lives under `fishlive.config.*` with an explicit
   `.setup()` convention and a deterministic load order.
@@ -39,8 +44,7 @@ fire the same way, `awful.*` is the same API, themes are `theme.lua`.
 
 ## Requirements
 
-- [`somewm`](https://github.com/trip-zip/somewm) compositor ≥ current
-  `main`
+- [`somewm`](https://github.com/trip-zip/somewm) compositor 2.1 (v2 line)
 - Lua 5.1 or LuaJIT (same runtime AwesomeWM uses)
 - Standard AwesomeWM deps (via pacman on Arch): `luarocks`, `lua-lgi`,
   `gdk-pixbuf2`, `librsvg`
@@ -103,7 +107,7 @@ somewm-one/
    under `spec/`.
 3. Run the header lint and unit tests:
    ```bash
-   # check-headers.sh lives in the v2.0 work-in-progress fork (raven2cz/somewm):
+   # check-headers.sh lives in the v2 fork (raven2cz/somewm):
    bash "${SOMEWM_FORK_PATH:-$HOME/git/github/somewm}/plans/scripts/check-headers.sh"
    busted spec/
    ```
@@ -119,11 +123,9 @@ somewm-one/
   [@trip-zip](https://github.com/trip-zip) - the wlroots port that made
   AwesomeWM-on-Wayland real. This is the canonical upstream project
   `somewm-one` is built for.
-  *Note: I also maintain a [development fork at raven2cz/somewm](https://github.com/raven2cz/somewm)
-  where active work toward somewm 2.0 happens (focus/input fixes, NVIDIA
-  workarounds, SceneFX integration, animation framework). It tracks
-  upstream and contributes back via PRs; use it only if you specifically
-  need one of the in-flight changes.*
+  *Note: I also maintain a [fork at raven2cz/somewm](https://github.com/raven2cz/somewm).
+  Its v2 line tracks upstream somewm 2.1 with a thin set of fork changes
+  and contributes back via PRs.*
 - **[layout-machi](https://github.com/xinhaoyuan/layout-machi)** by
   [@xinhaoyuan](https://github.com/xinhaoyuan) - the interactive tiling
   layout engine vendored under `layout-machi/`.
