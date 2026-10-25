@@ -253,8 +253,8 @@ function module.create(args_or_name, editor, default_cmd)
         end
         local _cd, _nt, _areas, instance, _new_placement_cb = get_instance_data(screen, tag)
 
-        if tag_data[tag].regsitered then
-            tag_data[tag].regsitered = false
+        if tag_data[tag].registered then
+            tag_data[tag].registered = false
             tag:disconnect_signal("property::layout", clean_up)
             tag:disconnect_signal("property::selected", clean_up)
             for _, tag in pairs(instance.nested_tags) do
@@ -277,7 +277,7 @@ function module.create(args_or_name, editor, default_cmd)
 
         if not tag_data[tag] then tag_data[tag] = {} end
         if not tag_data[tag].registered then
-            tag_data[tag].regsitered = true
+            tag_data[tag].registered = true
             tag:connect_signal("property::layout", clean_up)
             tag:connect_signal("property::selected", clean_up)
         end
@@ -307,7 +307,7 @@ function module.create(args_or_name, editor, default_cmd)
         end
 
         for i, c in ipairs(cls) do
-            if c.floating or c.immobilized then
+            if c.floating or (c.immobilized_horizontal or c.immobilized_vertical) then
                 log(DEBUG, "Ignore client " .. tostring(c))
             else
                 local geo = {

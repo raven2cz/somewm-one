@@ -17,12 +17,8 @@ local DEBUG = -1
 
 local module = {
     log_level = WARNING,
-    nested_layouts = {
-        ["0"] = awful.layout.suit.tile,
-        ["1"] = awful.layout.suit.spiral,
-        ["2"] = awful.layout.suit.fair,
-        ["3"] = awful.layout.suit.fair.horizontal,
-    },
+	-- Stock 2.1 suits only arrange through Clay, not nested geometries.
+	nested_layouts = {},
 }
 
 local function log(level, msg)
@@ -43,7 +39,7 @@ end
 
 local function is_tiling(c)
     return
-        not (c.tomb_floating or c.floating or c.maximized_horizontal or c.maximized_vertical or c.maximized or c.fullscreen)
+        not (c.floating or c.maximized_horizontal or c.maximized_vertical or c.maximized or c.fullscreen)
 end
 
 local function set_tiling(c)
@@ -191,6 +187,7 @@ function module.create(data)
                 width = screen.workarea.width,
                 height = screen.workarea.height,
                 bg = "#ffffff00",
+				shadow = false,
                 opacity = 1,
                 ontop = true,
                 type = "dock",
@@ -491,7 +488,7 @@ function module.create(data)
     end
 
     function adjust_shares(c, axis, adj)
-        if not c:isvisible() or c.floating or c.immobilized then
+        if not c:isvisible() or c.floating or (c.immobilized_horizontal or c.immobilized_vertical) then
             return
         end
         local screen = c.screen

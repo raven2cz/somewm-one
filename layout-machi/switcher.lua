@@ -91,6 +91,7 @@ function module.start(c, exit_keys)
             width = screen.workarea.width,
             height = screen.workarea.height,
             bg = "#ffffff00",
+			shadow = false,
             opacity = 1,
             ontop = true,
             type = "dock",
@@ -147,7 +148,7 @@ function module.start(c, exit_keys)
 
             local active_area = selected_area()
             for _, tc in ipairs(screen.tiled_clients) do
-                if not (tc.floating or tc.immobilized)
+                if not (tc.floating or (tc.immobilized_horizontal or tc.immobilized_vertical))
                 then
                     if areas[active_area].x <= tc.x + tc.width + tc.border_width * 2 and tc.x <= areas[active_area].x + areas[active_area].width and
                         areas[active_area].y <= tc.y + tc.height + tc.border_width * 2 and tc.y <= areas[active_area].y + areas[active_area].height
@@ -355,44 +356,43 @@ function module.start(c, exit_keys)
             current_area = selected_area()
 
             for i, a in ipairs(areas) do
-                if not a.habitable then goto continue end
+				if a.habitable then
+					local v
+					if key == "Up" then
+						if a.x < traverse_x + threshold
+							and traverse_x < a.x + a.width + threshold then
+							v = traverse_y - a.y - a.height
+						else
+							v = -1
+						end
+					elseif key == "Down" then
+						if a.x < traverse_x + threshold
+							and traverse_x < a.x + a.width + threshold then
+							v = a.y - traverse_y
+						else
+							v = -1
+						end
+					elseif key == "Left" then
+						if a.y < traverse_y + threshold
+							and traverse_y < a.y + a.height + threshold then
+							v = traverse_x - a.x - a.width
+						else
+							v = -1
+						end
+					elseif key == "Right" then
+						if a.y < traverse_y + threshold
+							and traverse_y < a.y + a.height + threshold then
+							v = a.x - traverse_x
+						else
+							v = -1
+						end
+					end
 
-                local v
-                if key == "Up" then
-                    if a.x < traverse_x + threshold
-                        and traverse_x < a.x + a.width + threshold then
-                        v = traverse_y - a.y - a.height
-                    else
-                        v = -1
-                    end
-                elseif key == "Down" then
-                    if a.x < traverse_x + threshold
-                        and traverse_x < a.x + a.width + threshold then
-                        v = a.y - traverse_y
-                    else
-                        v = -1
-                    end
-                elseif key == "Left" then
-                    if a.y < traverse_y + threshold
-                        and traverse_y < a.y + a.height + threshold then
-                        v = traverse_x - a.x - a.width
-                    else
-                        v = -1
-                    end
-                elseif key == "Right" then
-                    if a.y < traverse_y + threshold
-                        and traverse_y < a.y + a.height + threshold then
-                        v = a.x - traverse_x
-                    else
-                        v = -1
-                    end
-                end
-
-                if (v > threshold) and (choice_value == nil or choice_value > v) then
-                    choice = i
-                    choice_value = v
-                end
-                ::continue::
+					if (v > threshold) and (choice_value == nil or choice_value > v) then
+						choice = i
+						choice_value = v
+					end
+				end
             end
 
             if choice == nil then
