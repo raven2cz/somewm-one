@@ -224,7 +224,6 @@ function M.setup(args)
 				if self._private.frame then
 					self._private.imagebox.visible = false
 					self._private.frame.bg = "#00000040"
-					self._private.frame.surface_scale = 1.0
 				end
 			end)
 			s:refresh()

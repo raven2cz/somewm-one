@@ -33,15 +33,12 @@ local function update_and_emit()
 	})
 end
 
-function keyboard:start()
-	if running then return end
-	running = true
-
+local function update_map()
 	-- Parse xkb group names: "pc+us+cz(qwerty):2+grp:alt_shift_toggle"
 	-- Extract layout codes (us, cz) from the + separated parts
 	local names = awesome.xkb_get_group_names()
+	layout_names = {}
 	if names then
-		layout_names = {}
 		for part in names:gmatch("[^+]+") do
 			-- Skip: pc, evdev, pcXXX, grp:*, compose:*
 			if not part:match("^pc") and not part:match("^evdev")
@@ -60,14 +57,23 @@ function keyboard:start()
 		end
 	end
 
-	awesome.connect_signal("xkb::group_changed", update_and_emit)
 	update_and_emit()
+end
+
+function keyboard:start()
+	if running then return end
+	running = true
+
+	awesome.connect_signal("xkb::group_changed", update_and_emit)
+	awesome.connect_signal("xkb::map_changed", update_map)
+	update_map()
 end
 
 function keyboard:stop()
 	if not running then return end
 	running = false
 	awesome.disconnect_signal("xkb::group_changed", update_and_emit)
+	awesome.disconnect_signal("xkb::map_changed", update_map)
 end
 
 broker.register_producer("data::keyboard", keyboard)

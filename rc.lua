@@ -7,7 +7,6 @@
 -- Orchestration only: framework init, theme load, keybindings/menus/screen/rules
 -- delegated to fishlive.config.*. See this repo for the full tree.
 --
--- awesome_mode: api-level=4:screen=on
 
 pcall(require, "luarocks.loader")
 
@@ -57,9 +56,9 @@ if awesome.x11_fallback_info then
         local info = awesome.x11_fallback_info
         naughty.notification {
             urgency = "critical",
-            title   = "Config contains X11 patterns - using fallback",
+            title   = "Config contains X11 patterns",
             message = string.format(
-                "Your config was skipped because it contains X11-specific code.\n\n"
+                "Your config contains X11-specific code. It was loaded anyway; these patterns may not work on Wayland.\n\n"
                 .. "File: %s:%d\nPattern: %s\nCode: %s\n\nSuggestion: %s",
                 info.config_path or "unknown", info.line_number or 0,
                 info.pattern or "unknown", info.line_content or "",
@@ -92,9 +91,9 @@ editor_cmd = terminal .. " -e " .. editor
 modkey = "Mod4"
 altkey = "Mod1"
 
-awesome._set_keyboard_setting("xkb_layout", "us,cz")
-awesome._set_keyboard_setting("xkb_variant", ",qwerty")
-awesome._set_keyboard_setting("xkb_options", "grp:alt_shift_toggle")
+awful.input.xkb_layout = "us,cz"
+awful.input.xkb_variant = ",qwerty"
+awful.input.xkb_options = "grp:alt_shift_toggle"
 awesome._set_keyboard_setting("numlock", true)
 
 -- Pointer / touchpad (libinput-backed, compositor-wide — applies to all input

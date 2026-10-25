@@ -73,7 +73,7 @@ function M.highlight_label(label, key, accent_color, fg_color)
 		local after = label:sub(i + 1)
 		return string.format(
 			'<span foreground="%s">%s</span>'
-			.. '<span foreground="%s"><b><u>%s</u></b></span>'
+			.. '<span foreground="%s"><u>%s</u></span>'
 			.. '<span foreground="%s">%s</span>',
 			fg_color, before, accent_color, letter, fg_color, after
 		)
@@ -135,6 +135,7 @@ local function make_button(icon, label, shortcut_key, action)
 		bg = "transparent",
 		border_width = dpi(1),
 		border_color = "transparent",
+		animation = { bg = cfg.anim_duration, border_color = cfg.anim_duration },
 		shape = function(cr, w, h) gears.shape.rounded_rect(cr, w, h, dpi(14)) end,
 		widget = wibox.container.background,
 	})
@@ -157,17 +158,6 @@ local function make_button(icon, label, shortcut_key, action)
 			icon_margin.top = m
 			icon_margin.bottom = m
 
-			-- Background + border fade
-			if t > 0.01 then
-				local alpha_bg = string.format("%02x", math.floor(t * 0x30 + 0.5))
-				local alpha_border = string.format("%02x", math.floor(t * 0.4 * 255 + 0.5))
-				btn.bg = hover_bg:sub(1, 7) .. alpha_bg
-				btn.border_color = cfg.icon_color:sub(1, 7) .. alpha_border
-			else
-				btn.bg = "transparent"
-				btn.border_color = "transparent"
-			end
-
 			-- Icon color interpolation
 			local icon_color = M.lerp_color(cfg.icon_color:sub(1, 7), cfg.icon_hover:sub(1, 7), t)
 			icon_widget.markup = string.format('<span foreground="%s">%s</span>', icon_color, icon)
@@ -182,11 +172,15 @@ local function make_button(icon, label, shortcut_key, action)
 	})
 
 	btn:connect_signal("mouse::enter", function()
+		btn.bg = hover_bg
+		btn.border_color = cfg.icon_color:sub(1, 7) .. "66"
 		hover_anim.target = 1
 		local w = _G.mouse.current_wibox
 		if w then w.cursor = "hand1" end
 	end)
 	btn:connect_signal("mouse::leave", function()
+		btn.bg = "transparent"
+		btn.border_color = "transparent"
 		hover_anim.target = 0
 		local w = _G.mouse.current_wibox
 		if w then w.cursor = "left_ptr" end
@@ -337,8 +331,6 @@ function M.init(opts)
 				{
 					image = img,
 					resize = true,
-					horizontal_fit_policy = "fit",
-					vertical_fit_policy = "fit",
 					upscale = true,
 					downscale = true,
 					widget = wibox.widget.imagebox,

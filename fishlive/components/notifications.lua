@@ -96,13 +96,13 @@ naughty.config.icon_dirs = {
 }
 naughty.config.icon_formats = { "svg", "png", "jpg", "gif" }
 
--- Rules read beautiful.* dynamically via request::rules signal
+-- Function properties read the active theme for each notification.
 ruled.notification.connect_signal("request::rules", function()
 	ruled.notification.append_rule {
 		rule       = { urgency = "critical" },
 		properties = {
-			font             = beautiful.font,
-			bg               = beautiful.bg_urgent or "#cc2233",
+			font             = function() return beautiful.font end,
+			bg               = function() return beautiful.bg_urgent or "#cc2233" end,
 			fg               = "#ffffff",
 			margin           = dpi(16),
 			icon_size        = dpi(360),
@@ -113,9 +113,9 @@ ruled.notification.connect_signal("request::rules", function()
 	ruled.notification.append_rule {
 		rule       = { urgency = "normal" },
 		properties = {
-			font             = beautiful.font,
-			bg               = beautiful.notification_bg,
-			fg               = beautiful.notification_fg,
+			font             = function() return beautiful.font end,
+			bg               = function() return beautiful.notification_bg end,
+			fg               = function() return beautiful.notification_fg end,
 			margin           = dpi(16),
 			position         = "top_middle",
 			implicit_timeout = 15,
@@ -126,9 +126,9 @@ ruled.notification.connect_signal("request::rules", function()
 	ruled.notification.append_rule {
 		rule       = { urgency = "low" },
 		properties = {
-			font             = beautiful.font,
-			bg               = beautiful.notification_bg,
-			fg               = beautiful.notification_fg,
+			font             = function() return beautiful.font end,
+			bg               = function() return beautiful.notification_bg end,
+			fg               = function() return beautiful.notification_fg end,
 			margin           = dpi(16),
 			position         = "top_middle",
 			implicit_timeout = 12,
@@ -159,11 +159,16 @@ naughty.connect_signal("request::display", function(n)
 	-- Pick icon for display without modifying n.icon (avoids signal loops)
 	local display_icon = resolve_icon(n)
 
+	-- The native notification flow takes its width from the theme.
+	beautiful.notification_width = beautiful.notification_width or dpi(900)
+	local portrait_width = math.min(dpi(288), math.max(1,
+		math.floor((beautiful.notification_width - dpi(32)) * 0.35)))
 	local popup = naughty.layout.box {
+		opacity = n.opacity,
 		notification = n,
 		border_width = 0,
 		animation = require("fishlive.config.animations").popup_animation,
-		maximum_width = dpi(900),
+		maximum_width = beautiful.notification_width,
 		shape = function(cr, w, h)
 			gears.shape.rounded_rect(cr, w, h, dpi(6))
 		end,
@@ -174,10 +179,9 @@ naughty.connect_signal("request::display", function(n)
 						image          = display_icon,
 						resize         = true,
 						upscale        = true,
-						-- Match the naughty.config.defaults.icon_size / per-urgency
-						-- ruled.notification icon_size of dpi(360). Portrait 4:5.
-						forced_width   = dpi(288),
-						forced_height  = dpi(360),
+						-- Leave room for text even with a narrower theme width.
+						forced_width   = portrait_width,
+						forced_height  = math.floor(portrait_width * 1.25),
 						clip_shape     = function(cr, w, h)
 							gears.shape.rounded_rect(cr, w, h, dpi(4))
 						end,

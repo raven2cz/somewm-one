@@ -19,8 +19,6 @@
 local awful = require("awful")
 local ruled = require("ruled")
 local client_fixes = require("fishlive.config.client_fixes")
-local lgi_ok, lgi = pcall(require, "lgi")
-local cairo = lgi_ok and lgi.cairo or _G.cairo
 
 local M = { _initialized = false }
 
@@ -148,10 +146,7 @@ function M.setup()
 		end,
 	}
 
-	-- GLava visualizer (click-through, no focus).
-	-- NOTE somewm 2.x: client shape masks (shape_input) are accepted and never
-	-- read, so the click-through below is a no-op there and GLava takes
-	-- pointer input. Kept for the v1 compositor.
+	-- GLava stays unfocusable; client input masks are unsupported in 2.1.
 	ruled.client.append_rule {
 		id         = "glava",
 		rule_any   = { name = { "GLava" } },
@@ -160,11 +155,6 @@ function M.setup()
 			ontop = true,
 			skip_taskbar = true
 		},
-		callback   = function(c)
-			local img = cairo.ImageSurface(cairo.Format.A1, 0, 0)
-			c.shape_input = img._native
-			img.finish()
-		end
 	}
 
 	-- Web widgets (WebKitGTK): square, borderless, no shadow

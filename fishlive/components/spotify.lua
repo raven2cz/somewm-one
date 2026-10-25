@@ -113,8 +113,9 @@ function M.create(screen, config)
 		end
 
 		tooltip.markup = string.format(
-			"<b>Artist</b>: %s\n<b>Song</b>: %s\n<b>Album</b>: %s",
-			data.artist, data.title, data.album)
+			"Artist: %s\nSong: %s\nAlbum: %s",
+			gears.string.xml_escape(data.artist), gears.string.xml_escape(data.title),
+			gears.string.xml_escape(data.album))
 
 		if not widget.visible then
 			widget.visible = true

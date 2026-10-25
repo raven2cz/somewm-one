@@ -15,37 +15,18 @@
 -- @copyright 2026 MIT License
 ---------------------------------------------------------------------------
 
-local naughty = require("naughty")
+local awful = require("awful")
 
 local M = { _initialized = false, _resizing = setmetatable({}, { __mode = "k" }) }
-
-local function titlebar_sizes(c)
-	local _, top = c:titlebar_top()
-	local _, right = c:titlebar_right()
-	local _, bottom = c:titlebar_bottom()
-	local _, left = c:titlebar_left()
-	return top or 0, right or 0, bottom or 0, left or 0
-end
-
--- Content area of a client, i.e. what the aspect ratio describes.
--- Only titlebars come off: c:geometry() has been border-exclusive since the
--- kolo10 upstream sync (3f6cfd9/a247cd5), and the compositor's own aspect
--- clamp in window.c/objects/client.c uses the same definition. Subtracting the
--- border here as well made the two disagree by 2*border_width, and since
--- update_mpv_aspect re-derives the ratio from geometry on every
--- property::size, the disagreement compounded and the window crept smaller.
-local function content_size(c, geo)
-	local top, right, bottom, left = titlebar_sizes(c)
-	return geo.width - left - right,
-		geo.height - top - bottom
-end
 
 function M.update_mpv_aspect(c)
 	if c.class ~= "mpv" or not c.floating or c.fullscreen or c.maximized then
 		return
 	end
 
-	local cw, ch = content_size(c, c:geometry())
+	-- The native aspect clamp includes titlebars and excludes borders.
+	local geo = c:geometry()
+	local cw, ch = geo.width, geo.height
 	if cw > 0 and ch > 0 then
 		c.aspect_ratio = cw / ch
 	end
@@ -57,12 +38,7 @@ local function apply_aspect_geometry(c, geo, args)
 		return geo
 	end
 
-	-- Titlebars only; see content_size() on why the border is not included.
-	local top, right, bottom, left = titlebar_sizes(c)
-	local deco_w = left + right
-	local deco_h = top + bottom
-	local cw = geo.width - deco_w
-	local ch = geo.height - deco_h
+	local cw, ch = geo.width, geo.height
 	if cw <= 0 or ch <= 0 then
 		return geo
 	end
@@ -87,8 +63,8 @@ local function apply_aspect_geometry(c, geo, args)
 		end
 	end
 
-	local new_w = cw + deco_w
-	local new_h = ch + deco_h
+	local new_w = cw
+	local new_h = ch
 	local right_edge = geo.x + geo.width
 	local bottom_edge = geo.y + geo.height
 
@@ -116,14 +92,7 @@ function M.setup()
 	-- Steam bug: windows positioned outside screen bounds
 	client.connect_signal("property::position", function(c)
 		if c.class == "Steam" then
-			local g = c.screen.geometry
-			if c.y + c.height > g.height then
-				c.y = g.height - c.height
-				naughty.notification { message = "restricted window: " .. c.name }
-			end
-			if c.x + c.width > g.width then
-				c.x = g.width - c.width
-			end
+			awful.placement.no_offscreen(c, { honor_workarea = true })
 		end
 	end)
 

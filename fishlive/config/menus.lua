@@ -45,12 +45,8 @@ function M.setup(args)
 			{ icon = "󰆍", label = "Terminal",
 			  on_activate = function() awful.spawn(terminal) end },
 			{ separator = true },
-			-- rebuild_restart is a v1 fork API (exit code 2 to somewm-session);
-			-- somewm 2.x has only the in-place restart.
-			{ icon = "󰑓", label = awesome.rebuild_restart and "Rebuild & Restart" or "Restart",
-			  on_activate = function()
-				if awesome.rebuild_restart then awesome.rebuild_restart() else awesome.restart() end
-			  end },
+			{ icon = "󰑓", label = "Restart",
+			  on_activate = function() awesome.restart() end },
 			{ icon = "󰗼", label = "Quit",
 			  on_activate = function() awesome.quit() end },
 		},

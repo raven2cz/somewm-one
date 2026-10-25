@@ -146,8 +146,27 @@ local function create_timeout(rate, override_dt)
 		end
 	end
 	time_last = glib.get_monotonic_time()
-	return true
+	for _, obj in pairs(RUBATO_MANAGER.timeds) do
+		if obj.rate == rate and obj.override_dt == override_dt and obj.pos ~= obj.target then
+			return true
+		end
+	end
+	-- Restart on the next target change instead of waking an idle timer.
+	RUBATO_TIMEOUTS[override_dt and 2 or 1][rate] = nil
+	return false
 end) end
+
+-- Lua callbacks must be released before somewm replaces the VM.
+if awesome and awesome.connect_signal then
+	awesome.connect_signal("exit", function()
+		for _, timeouts in ipairs(RUBATO_TIMEOUTS) do
+			for rate, source in pairs(timeouts) do
+				glib.source_remove(source)
+				timeouts[rate] = nil
+			end
+		end
+	end)
+end
 
 --- INTERPOLATE. bam. it still ends in a period. But this one is timed.
 -- So documentation isn't super necessary here since it's all on the README and idk how to do

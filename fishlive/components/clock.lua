@@ -55,6 +55,7 @@ function M.create(screen, config)
 	local cal_popup
 
 	local function create_popup()
+		if cal_popup then cal_popup.visible = false end
 		local bg_base = beautiful.bg_normal or "#181818"
 		local accent = get_time_color()
 		local df = get_date_font()

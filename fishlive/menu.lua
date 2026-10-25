@@ -197,29 +197,29 @@ end
 function Menu:_update_highlights()
 	local c = colors()
 	for _, row in ipairs(self._rows) do
-		if row.is_separator then goto continue end
-		local is_checked = row.item.checked
-			or (row.item.checked_fn and row.item.checked_fn())
-		if row.index == self._focused_index then
-			row.widget.bg = c.bg_focus
-			row.label.markup = label_markup(c.label_font, c.fg_focus, row.item.label)
-			if not row.item.icon_image and row.item.icon then
-				row.icon.markup = icon_markup(c.icon_font, c.fg_focus, row.item.icon)
-			end
-		elseif is_checked then
-			row.widget.bg = color_alpha(c.accent, "25")
-			row.label.markup = label_markup(c.label_font, c.fg_focus, row.item.label)
-			if not row.item.icon_image and row.item.icon then
-				row.icon.markup = icon_markup(c.icon_font, c.accent, row.item.icon)
-			end
-		else
-			row.widget.bg = "transparent"
-			row.label.markup = label_markup(c.label_font, c.fg, row.item.label)
-			if not row.item.icon_image and row.item.icon then
-				row.icon.markup = icon_markup(c.icon_font, c.accent, row.item.icon)
+		if not row.is_separator then
+			local is_checked = row.item.checked
+				or (row.item.checked_fn and row.item.checked_fn())
+			if row.index == self._focused_index then
+				row.widget.bg = c.bg_focus
+				row.label.markup = label_markup(c.label_font, c.fg_focus, row.item.label)
+				if not row.item.icon_image and row.item.icon then
+					row.icon.markup = icon_markup(c.icon_font, c.fg_focus, row.item.icon)
+				end
+			elseif is_checked then
+				row.widget.bg = color_alpha(c.accent, "25")
+				row.label.markup = label_markup(c.label_font, c.fg_focus, row.item.label)
+				if not row.item.icon_image and row.item.icon then
+					row.icon.markup = icon_markup(c.icon_font, c.accent, row.item.icon)
+				end
+			else
+				row.widget.bg = "transparent"
+				row.label.markup = label_markup(c.label_font, c.fg, row.item.label)
+				if not row.item.icon_image and row.item.icon then
+					row.icon.markup = icon_markup(c.icon_font, c.accent, row.item.icon)
+				end
 			end
 		end
-		::continue::
 	end
 end
 
@@ -277,6 +277,13 @@ function Menu:_ensure_popup()
 		visible = false,
 		maximum_width = self._args.width or dpi(220),
 	}
+	self._popup:connect_signal("property::geometry", function(p)
+		-- Placement uses the dimensions published by the completed frame.
+		if self._placement_fn and (p.width ~= self._placed_width or p.height ~= self._placed_height) then
+			self._placed_width, self._placed_height = p.width, p.height
+			self._placement_fn(p)
+		end
+	end)
 end
 
 function Menu:_start_grabber()
@@ -346,23 +353,39 @@ function Menu:_activate_focused()
 	end
 end
 
---- Start click-outside detection using root button binding.
--- Only intercept button 1 (left-click). Button 3 (right-click) is left
--- to the permanent desktop_menu binding in rc.lua to avoid both firing.
+--- Observe outside clicks without consuming client or wibar bindings.
 function Menu:_start_click_outside()
 	if self._root_btn then return end
-	local self_ref = self
-	self._root_btn = awful.button({}, 1, function()
-		self_ref:hide()
-	end)
+	local function outside(_, _, _, button)
+		if button == 1 then self:hide() end
+	end
+	self._outside_fn = outside
+	self._root_btn = awful.button({}, 1, function() self:hide() end)
 	awful.mouse.append_global_mousebinding(self._root_btn)
+	client.connect_signal("button::press", outside)
+	self._outside_drawables = {}
+	self._watch_drawin = function(d)
+		if d == self._popup.drawin or not d.visible then return end
+		local drawable = d.drawable
+		if drawable and not self._outside_drawables[drawable] then
+			self._outside_drawables[drawable] = true
+			drawable:connect_signal("button::press", outside)
+		end
+	end
+	drawin.connect_signal("property::visible", self._watch_drawin)
+	for _, d in ipairs(drawin.get()) do self._watch_drawin(d) end
 end
 
 function Menu:_stop_click_outside()
-	if self._root_btn then
-		awful.mouse.remove_global_mousebinding(self._root_btn)
-		self._root_btn = nil
+	if not self._root_btn then return end
+	awful.mouse.remove_global_mousebinding(self._root_btn)
+	client.disconnect_signal("button::press", self._outside_fn)
+	drawin.disconnect_signal("property::visible", self._watch_drawin)
+	for drawable in pairs(self._outside_drawables) do
+		drawable:disconnect_signal("button::press", self._outside_fn)
 	end
+	self._root_btn, self._outside_fn, self._watch_drawin = nil, nil, nil
+	self._outside_drawables = nil
 end
 
 function Menu:_apply_theme()
@@ -387,24 +410,18 @@ function Menu:show(anchor)
 	self:_rebuild()
 	self._focused_index = 0
 
-	-- Position and show
 	local placement = self._args.placement or "under_mouse"
+	self._placement_fn = function(popup)
+		if placement == "under_mouse" then
+			awful.placement.under_mouse(popup)
+			awful.placement.no_offscreen(popup, { margins = dpi(8) })
+		elseif type(placement) == "function" then
+			placement(popup, anchor)
+		end
+	end
+	self._placed_width, self._placed_height = nil, nil
 	self._popup.visible = true
-
-	-- Force geometry computation before placement so no_offscreen
-	-- knows the real width/height (fixes first-show going off-screen)
-	if self._popup._apply_size_now then
-		self._popup:_apply_size_now(false)
-	end
-
-	if placement == "under_mouse" then
-		awful.placement.under_mouse(self._popup)
-		awful.placement.no_offscreen(self._popup, {
-			margins = dpi(8),
-		})
-	elseif type(placement) == "function" then
-		placement(self._popup, anchor)
-	end
+	self._placement_fn(self._popup)
 
 	-- Setup close mechanism
 	local close_on = self._args.close_on or "escape"
@@ -439,6 +456,7 @@ end
 function Menu:hide()
 	if not self._popup then return end
 
+	self._placement_fn = nil
 	self._popup.visible = false
 
 	-- Debounce: prevent toggle() from re-opening immediately
