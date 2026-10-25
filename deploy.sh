@@ -24,6 +24,7 @@ EXCLUDES=(
     --exclude '.active_theme'
     --exclude '.default_portrait'
     --exclude 'rc.lua.bak'
+    --exclude 'themes/*/theme.json'   # written by somewm-shell's theme-export.sh
 )
 
 if [[ "${1:-}" == "--dry-run" ]]; then
